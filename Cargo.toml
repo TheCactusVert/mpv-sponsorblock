@@ -1,0 +1,16 @@
+[package]
+name = "mpv-sponsorblock"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "sponsorblock"
+crate-type = ["cdylib"]      # Creates dynamic lib
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+env_logger = "0.9.1"
+log = "0.4.17"
+regex = "1.6.0"
+
