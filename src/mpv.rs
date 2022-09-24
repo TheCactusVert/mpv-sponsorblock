@@ -1,4 +1,3 @@
-use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_int, c_void};
 
 #[repr(C)]
