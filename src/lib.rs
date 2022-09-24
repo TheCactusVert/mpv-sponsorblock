@@ -25,16 +25,17 @@ pub unsafe extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> c_int {
     loop {
         let event: *mut mpv_event = mpv_wait_event(handle, -1.0);
 
-        log::debug!("Event received: {}", (*event).event_id);
-        
         let event_id = (*event).event_id;
+        let reply_userdata = (*event).reply_userdata;
+        
+        log::debug!("Event received: {}", event_id);
         
         if event_id == MPV_EVENT_SHUTDOWN {
             return 0;
         } else if event_id == MPV_EVENT_FILE_LOADED {
             segments = file_loaded::event(handle);
         } else if event_id == MPV_EVENT_PROPERTY_CHANGE {
-            property_changed::event(handle, (*event).reply_userdata);
+            property_change::event(handle, reply_userdata);
         }
     }
 }

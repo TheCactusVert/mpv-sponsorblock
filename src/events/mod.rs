@@ -1,2 +1,2 @@
 pub mod file_loaded;
-pub mod property_changed;
+pub mod property_change;
