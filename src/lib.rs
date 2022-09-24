@@ -2,6 +2,10 @@ use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_int, c_void};
 
 use regex::Regex;
+use sponsor_block::{AcceptedActions, AcceptedCategories, Client, Segment};
+
+// This should be random, treated like a password, and stored across sessions
+const USER_ID: &str = include_str!("../user.in");
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -46,6 +50,8 @@ extern "C" {
 
 pub const YOUTUBE_REPLY_USERDATA: u64 = 1;
 
+pub type Segments = Vec<Segment>;
+
 fn get_youtube_id(path: &CStr) -> Option<String> {
     let regexes = [
         Regex::new(r"https?://youtu%.be/([A-Za-z0-9-_]+).*").unwrap(),
@@ -65,7 +71,7 @@ fn get_youtube_id(path: &CStr) -> Option<String> {
     None
 }
 
-unsafe fn event_file_loaded(handle: *mut mpv_handle) {
+unsafe fn event_file_loaded(handle: *mut mpv_handle) -> Option<Segments> {
     let property_path = CString::new("path").unwrap();
     let property_time = CString::new("time-pos").unwrap();
 
@@ -75,17 +81,24 @@ unsafe fn event_file_loaded(handle: *mut mpv_handle) {
     let youtube_id = get_youtube_id(path);
     log::info!("YouTube ID: {:?}!", youtube_id);
 
-    match youtube_id {
-        Some(_id) => mpv_observe_property(
+    let segments: Option<Segments> = if let Some(id) = youtube_id {
+        mpv_observe_property(
             handle,
             YOUTUBE_REPLY_USERDATA,
             property_time.as_ptr(),
             MPV_FORMAT_DOUBLE,
-        ),
-        None => mpv_unobserve_property(handle, YOUTUBE_REPLY_USERDATA),
+        );
+
+        let client = Client::new(USER_ID);
+        client.fetch_segments(&id, AcceptedCategories::all(), AcceptedActions::all()).ok()
+    } else {
+        mpv_unobserve_property(handle, YOUTUBE_REPLY_USERDATA);
+        None
     };
 
     mpv_free(c_path as *mut c_void);
+    
+    segments
 }
 
 unsafe fn event_property_changed(handle: *mut mpv_handle, reply_userdata: u64) {
@@ -103,17 +116,22 @@ pub unsafe extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> c_int {
         "Starting plugin SponsorBlock ({:?})!",
         CStr::from_ptr(mpv_client_name(handle))
     );
+    
+    let mut segments: Option<Segments> = None;
 
     loop {
         let event: *mut mpv_event = mpv_wait_event(handle, -1.0);
 
         log::debug!("Event received: {}", (*event).event_id);
-
-        match (*event).event_id {
-            MPV_EVENT_SHUTDOWN => return 0,
-            MPV_EVENT_FILE_LOADED => event_file_loaded(handle),
-            MPV_EVENT_PROPERTY_CHANGE => event_property_changed(handle, (*event).reply_userdata),
-            _ => {}
+        
+        let event_id = (*event).event_id;
+        
+        if event_id == MPV_EVENT_SHUTDOWN {
+            return 0;
+        } else if event_id == MPV_EVENT_FILE_LOADED {
+            segments = event_file_loaded(handle);
+        } else if event_id == MPV_EVENT_PROPERTY_CHANGE {
+            event_property_changed(handle, (*event).reply_userdata);
         }
     }
 }
