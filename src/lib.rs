@@ -48,10 +48,10 @@ pub const YOUTUBE_REPLY_USERDATA: u64 = 1;
 
 fn get_youtube_id(path: &CStr) -> Option<String> {
     let regexes = [
-        Regex::new(r"https?://youtu%.be/([A-Za-z0-9-_]+).*").ok()?,
-        Regex::new(r"https?://w?w?w?%.?youtube%.com/v/([A-Za-z0-9-_]+).*").ok()?,
-        Regex::new(r"/watch.*[?&]v=([A-Za-z0-9-_]+).*").ok()?,
-        Regex::new(r"/embed/([A-Za-z0-9-_]+).*").ok()?,
+        Regex::new(r"https?://youtu%.be/([A-Za-z0-9-_]+).*").unwrap(),
+        Regex::new(r"https?://w?w?w?%.?youtube%.com/v/([A-Za-z0-9-_]+).*").unwrap(),
+        Regex::new(r"/watch.*[?&]v=([A-Za-z0-9-_]+).*").unwrap(),
+        Regex::new(r"/embed/([A-Za-z0-9-_]+).*").unwrap(),
     ];
 
     let path = path.to_str().ok()?;
@@ -66,8 +66,8 @@ fn get_youtube_id(path: &CStr) -> Option<String> {
 }
 
 unsafe fn event_file_loaded(handle: *mut mpv_handle) {
-    let property_path = CString::new("path").expect("CString::new failed");
-    let property_time = CString::new("time-pos").expect("CString::new failed");
+    let property_path = CString::new("path").unwrap();
+    let property_time = CString::new("time-pos").unwrap();
 
     let c_path = mpv_get_property_string(handle, property_path.as_ptr());
     let path = CStr::from_ptr(c_path);
