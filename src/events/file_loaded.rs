@@ -1,14 +1,12 @@
-use crate::{YT_REPLY_USERDATA, Segments};
+use crate::YT_REPLY_USERDATA;
 use crate::mpv::*;
+use crate::sponsorblock::segment::{SkipSegments};
 
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_void};
 
+use curl::easy::Easy;
 use regex::Regex;
-use sponsor_block::{AcceptedActions, AcceptedCategories, Client};
-
-// This should be random, treated like a password, and stored across sessions
-const USER_ID: &str = include_str!("../../user.in");
 
 fn get_youtube_id(path: &CStr) -> Option<String> {
     let regexes = [
@@ -29,12 +27,24 @@ fn get_youtube_id(path: &CStr) -> Option<String> {
     None
 }
 
-fn get_sponsorblock_segments(id: String) -> Option<Segments> {
-    let client = Client::new(USER_ID);
-    client.fetch_segments(&id, AcceptedCategories::all(), AcceptedActions::all()).ok()
+fn get_sponsorblock_skip_segments(id: String) -> Option<SkipSegments> {
+    let mut buf = Vec::new();
+    let mut handle = Easy::new();
+    handle.url(&format!("https://sponsor.ajay.app/api/skipSegments?videoID={}&category=sponsor&category=selfpromo", id)).ok()?;
+    {
+        let mut transfer = handle.transfer();
+        transfer.write_function(|data| {
+            buf.extend_from_slice(data);
+            Ok(data.len())
+        }).ok()?;
+        transfer.perform().ok()?;
+    }
+    
+    // Parse the string of data into SkipSegments.
+    serde_json::from_slice(&buf).ok()
 }
 
-pub unsafe fn event(handle: *mut mpv_handle) -> Option<Segments> {
+pub unsafe fn event(handle: *mut mpv_handle) -> Option<SkipSegments> {
     let property_path = CString::new("path").unwrap();
     let property_time = CString::new("time-pos").unwrap();
 
@@ -43,10 +53,10 @@ pub unsafe fn event(handle: *mut mpv_handle) -> Option<Segments> {
 
     let yt_id = get_youtube_id(path);
 
-    let segments: Option<Segments> = if let Some(id) = yt_id {
+    let skip_segments: Option<SkipSegments> = if let Some(id) = yt_id {
         log::info!("YouTube ID detected: {}.", id);
         mpv_observe_property(handle, YT_REPLY_USERDATA, property_time.as_ptr(), MPV_FORMAT_DOUBLE);
-        get_sponsorblock_segments(id)
+        get_sponsorblock_skip_segments(id)
     } else {
         mpv_unobserve_property(handle, YT_REPLY_USERDATA);
         None
@@ -54,5 +64,5 @@ pub unsafe fn event(handle: *mut mpv_handle) -> Option<Segments> {
 
     mpv_free(c_path as *mut c_void);
     
-    segments
+    skip_segments
 }

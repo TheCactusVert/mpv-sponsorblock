@@ -10,10 +10,13 @@ crate-type = ["cdylib"]      # Creates dynamic lib
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+curl = "0.4.44"
 env_logger = "0.9.1"
 log = "0.4.17"
 regex = "1.6.0"
-sponsor-block = { version = "0.6.1", git = "https://github.com/TheCactusVert/sponsorblock-rs.git" }
+serde = "1.0.145"
+serde_derive = "1.0.145"
+serde_json = "1.0.85"
 
 [profile.release]
 strip = true  # Automatically strip symbols from the binary.

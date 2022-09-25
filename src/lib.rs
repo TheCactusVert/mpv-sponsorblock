@@ -1,15 +1,15 @@
-mod events;
 mod mpv;
+mod events;
+mod sponsorblock;
 
 use crate::mpv::*;
 use crate::events::*;
+use crate::sponsorblock::segment::{SkipSegments};
 
 use std::ffi::CStr;
 use std::os::raw::{c_int};
 
 pub const YT_REPLY_USERDATA: u64 = 1;
-
-pub type Segments = Vec<sponsor_block::Segment>;
 
 #[no_mangle]
 pub unsafe extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> c_int {
@@ -20,7 +20,7 @@ pub unsafe extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> c_int {
         CStr::from_ptr(mpv_client_name(handle))
     );
     
-    let mut segments: Option<Segments> = None;
+    let mut segments: Option<SkipSegments> = None;
 
     loop {
         let event: *mut mpv_event = mpv_wait_event(handle, -1.0);
