@@ -1,6 +1,6 @@
 use crate::YT_REPLY_USERDATA;
 use crate::mpv::*;
-use crate::sponsorblock::segment::{Segments};
+use crate::api::segment::{Segments};
 
 use std::ffi::CString;
 use std::os::raw::{c_void, c_double};

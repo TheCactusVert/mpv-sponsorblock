@@ -1,7 +1,8 @@
 use crate::YT_REPLY_USERDATA;
 use crate::mpv::*;
-use crate::sponsorblock::segment;
-use crate::sponsorblock::segment::{Segments};
+use crate::config::Config;
+use crate::api::segment;
+use crate::api::segment::{Segments};
 
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_void};
@@ -27,7 +28,7 @@ fn get_youtube_id(path: &CStr) -> Option<String> {
         .next()
 }
 
-pub unsafe fn event(handle: *mut mpv_handle) -> Option<Segments> {
+pub unsafe fn event(handle: *mut mpv_handle, config: &Config) -> Option<Segments> {
     let property_path = CString::new("path").unwrap();
     let property_time = CString::new("time-pos").unwrap();
 
@@ -37,9 +38,13 @@ pub unsafe fn event(handle: *mut mpv_handle) -> Option<Segments> {
     let yt_id = get_youtube_id(path);
 
     let segments: Option<Segments> = if let Some(id) = yt_id {
-        log::info!("YouTube ID detected: {}.", id);
+        log::debug!("YouTube ID detected: {}.", id);
         mpv_observe_property(handle, YT_REPLY_USERDATA, property_time.as_ptr(), MPV_FORMAT_DOUBLE);
-        segment::from_private_api(id)
+        if config.privacy_api {
+            segment::from_private_api(config, id)
+        } else {
+            segment::from_api(config, id)
+        }
     } else {
         mpv_unobserve_property(handle, YT_REPLY_USERDATA);
         None

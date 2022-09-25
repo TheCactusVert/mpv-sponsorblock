@@ -1,10 +1,12 @@
 mod mpv;
+mod config;
 mod events;
-mod sponsorblock;
+mod api;
 
 use crate::mpv::*;
+use crate::config::Config;
 use crate::events::*;
-use crate::sponsorblock::segment::{Segments};
+use crate::api::segment::{Segments};
 
 use std::ffi::CStr;
 use std::os::raw::{c_int};
@@ -20,6 +22,8 @@ pub unsafe extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> c_int {
         CStr::from_ptr(mpv_client_name(handle))
     );
     
+    let config: Config = Config::get();
+    
     let mut segments: Option<Segments> = None;
 
     loop {
@@ -30,7 +34,7 @@ pub unsafe extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> c_int {
         if event_id == MPV_EVENT_SHUTDOWN {
             return 0;
         } else if event_id == MPV_EVENT_FILE_LOADED {
-            segments = file_loaded::event(handle);
+            segments = file_loaded::event(handle, &config);
         } else if event_id == MPV_EVENT_PROPERTY_CHANGE {
             property_change::event(handle, event, &segments);
         }

@@ -1,11 +1,12 @@
+use crate::config::Config;
+
+use std::result::Result;
+
 use curl::easy::Easy;
-use serde_derive::{Serialize, Deserialize};
-
 use sha2::{Sha256, Digest};
+use serde_derive::Deserialize;
 
-static SPONSORBLOCK_URL: &str = "https://sponsor.ajay.app";
-
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Segment {
     pub category: String,
@@ -24,50 +25,60 @@ pub struct Segment {
 
 pub type Segments = Vec<Segment>;
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Video {
+struct Video {
     #[serde(rename = "videoID")]
     pub video_id: String,
-    pub hash: String,
     pub segments: Segments,
 }
 
-pub type Videos = Vec<Video>;
+type Videos = Vec<Video>;
 
-pub fn from_api(id: String) -> Option<Segments> {
+fn get_data(url: &str) -> Result<Vec<u8>, curl::Error> {
     let mut buf = Vec::new();
     let mut handle = Easy::new();
-    handle.url(&format!("{}/api/skipSegments?videoID={}&category=sponsor&category=selfpromo&category=intro", SPONSORBLOCK_URL, id)).ok()?;
+    
+    handle.url(url)?;
     {
         let mut transfer = handle.transfer();
         transfer.write_function(|data| {
             buf.extend_from_slice(data);
             Ok(data.len())
-        }).ok()?;
-        transfer.perform().ok()?;
+        })?;
+        transfer.perform()?;
     }
+    
+    Ok(buf)
+}
+
+pub fn from_api(config: &Config, id: String) -> Option<Segments> {
+    log::info!("Getting segments for video {}.", id);
+
+    let buf = get_data(
+        &format!("{}/api/skipSegments?videoID={}&category=sponsor&category=selfpromo&category=intro", config.server_address, id)
+    ).map_err(|e| {
+        log::error!("Failed to get SponsorBlock data: {}", e.to_string());
+        e
+    }).ok()?;
     
     // Parse the string of data into Segments.
     serde_json::from_slice(&buf).ok()
 }
 
-pub fn from_private_api(id: String) -> Option<Segments> {
+pub fn from_private_api(config: &Config, id: String) -> Option<Segments> {
+    log::info!("Getting segments for video {} with extra privacy.", id);
+
     let mut hasher = Sha256::new(); // create a Sha256 object
     hasher.update(&id); // write input message
     let hash = hasher.finalize(); // read hash digest and consume hasher
-
-    let mut buf = Vec::new();
-    let mut handle = Easy::new();
-    handle.url(&format!("{}/api/skipSegments/{:.4}?category=sponsor&category=selfpromo&category=intro", SPONSORBLOCK_URL, hex::encode(hash))).ok()?;
-    {
-        let mut transfer = handle.transfer();
-        transfer.write_function(|data| {
-            buf.extend_from_slice(data);
-            Ok(data.len())
-        }).ok()?;
-        transfer.perform().ok()?;
-    }
+    
+    let buf = get_data(
+        &format!("{}/api/skipSegments/{:.4}?category=sponsor&category=selfpromo&category=intro", config.server_address, hex::encode(hash))
+    ).map_err(|e| {
+        log::error!("Failed to get SponsorBlock data: {}", e.to_string());
+        e
+    }).ok()?;
     
     // Parse the string of data into Segments.
     let videos: Videos = serde_json::from_slice(&buf).ok()?;
