@@ -12,7 +12,7 @@ pub struct SkipSegment {
     pub uuid: String,
     pub locked: i64,
     pub votes: i64,
-    pub video_duration: i64,
+    pub video_duration: f64,
     #[serde(rename = "userID")]
     pub user_id: String,
     pub description: String,
