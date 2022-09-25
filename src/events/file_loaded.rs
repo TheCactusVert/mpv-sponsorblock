@@ -1,11 +1,11 @@
 use crate::YT_REPLY_USERDATA;
 use crate::mpv::*;
-use crate::sponsorblock::segment::{SkipSegments};
+use crate::sponsorblock::segment;
+use crate::sponsorblock::segment::{Segments};
 
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_void};
 
-use curl::easy::Easy;
 use regex::Regex;
 
 fn get_youtube_id(path: &CStr) -> Option<String> {
@@ -27,24 +27,7 @@ fn get_youtube_id(path: &CStr) -> Option<String> {
     None
 }
 
-fn get_sponsorblock_skip_segments(id: String) -> Option<SkipSegments> {
-    let mut buf = Vec::new();
-    let mut handle = Easy::new();
-    handle.url(&format!("https://sponsor.ajay.app/api/skipSegments?videoID={}&category=sponsor&category=selfpromo", id)).ok()?;
-    {
-        let mut transfer = handle.transfer();
-        transfer.write_function(|data| {
-            buf.extend_from_slice(data);
-            Ok(data.len())
-        }).ok()?;
-        transfer.perform().ok()?;
-    }
-    
-    // Parse the string of data into SkipSegments.
-    serde_json::from_slice(&buf).ok()
-}
-
-pub unsafe fn event(handle: *mut mpv_handle) -> Option<SkipSegments> {
+pub unsafe fn event(handle: *mut mpv_handle) -> Option<Segments> {
     let property_path = CString::new("path").unwrap();
     let property_time = CString::new("time-pos").unwrap();
 
@@ -53,10 +36,10 @@ pub unsafe fn event(handle: *mut mpv_handle) -> Option<SkipSegments> {
 
     let yt_id = get_youtube_id(path);
 
-    let skip_segments: Option<SkipSegments> = if let Some(id) = yt_id {
+    let segments: Option<Segments> = if let Some(id) = yt_id {
         log::info!("YouTube ID detected: {}.", id);
         mpv_observe_property(handle, YT_REPLY_USERDATA, property_time.as_ptr(), MPV_FORMAT_DOUBLE);
-        get_sponsorblock_skip_segments(id)
+        segment::from_private_api(id)
     } else {
         mpv_unobserve_property(handle, YT_REPLY_USERDATA);
         None
@@ -64,5 +47,5 @@ pub unsafe fn event(handle: *mut mpv_handle) -> Option<SkipSegments> {
 
     mpv_free(c_path as *mut c_void);
     
-    skip_segments
+    segments
 }
