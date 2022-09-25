@@ -38,7 +38,7 @@ pub type Videos = Vec<Video>;
 pub fn from_api(id: String) -> Option<Segments> {
     let mut buf = Vec::new();
     let mut handle = Easy::new();
-    handle.url(&format!("{}/api/skipSegments?videoID={}&category=sponsor&category=selfpromo", SPONSORBLOCK_URL, id)).ok()?;
+    handle.url(&format!("{}/api/skipSegments?videoID={}&category=sponsor&category=selfpromo&category=intro", SPONSORBLOCK_URL, id)).ok()?;
     {
         let mut transfer = handle.transfer();
         transfer.write_function(|data| {
@@ -59,7 +59,7 @@ pub fn from_private_api(id: String) -> Option<Segments> {
 
     let mut buf = Vec::new();
     let mut handle = Easy::new();
-    handle.url(&format!("{}/api/skipSegments/{:.4}?category=sponsor&category=selfpromo", SPONSORBLOCK_URL, hex::encode(hash))).ok()?;
+    handle.url(&format!("{}/api/skipSegments/{:.4}?category=sponsor&category=selfpromo&category=intro", SPONSORBLOCK_URL, hex::encode(hash))).ok()?;
     {
         let mut transfer = handle.transfer();
         transfer.write_function(|data| {
