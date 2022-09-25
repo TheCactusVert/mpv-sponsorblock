@@ -1,4 +1,4 @@
-use crate::{YOUTUBE_REPLY_USERDATA, Segments};
+use crate::{YT_REPLY_USERDATA, Segments};
 use crate::mpv::*;
 
 use std::ffi::{CStr, CString};
@@ -29,6 +29,11 @@ fn get_youtube_id(path: &CStr) -> Option<String> {
     None
 }
 
+fn get_sponsorblock_segments(id: String) -> Option<Segments> {
+    let client = Client::new(USER_ID);
+    client.fetch_segments(&id, AcceptedCategories::all(), AcceptedActions::all()).ok()
+}
+
 pub unsafe fn event(handle: *mut mpv_handle) -> Option<Segments> {
     let property_path = CString::new("path").unwrap();
     let property_time = CString::new("time-pos").unwrap();
@@ -36,21 +41,14 @@ pub unsafe fn event(handle: *mut mpv_handle) -> Option<Segments> {
     let c_path = mpv_get_property_string(handle, property_path.as_ptr());
     let path = CStr::from_ptr(c_path);
 
-    let youtube_id = get_youtube_id(path);
-    log::info!("YouTube ID: {:?}!", youtube_id);
+    let yt_id = get_youtube_id(path);
 
-    let segments: Option<Segments> = if let Some(id) = youtube_id {
-        mpv_observe_property(
-            handle,
-            YOUTUBE_REPLY_USERDATA,
-            property_time.as_ptr(),
-            MPV_FORMAT_DOUBLE,
-        );
-
-        let client = Client::new(USER_ID);
-        client.fetch_segments(&id, AcceptedCategories::all(), AcceptedActions::all()).ok()
+    let segments: Option<Segments> = if let Some(id) = yt_id {
+        log::info!("YouTube ID detected: {}.", id);
+        mpv_observe_property(handle, YT_REPLY_USERDATA, property_time.as_ptr(), MPV_FORMAT_DOUBLE);
+        get_sponsorblock_segments(id)
     } else {
-        mpv_unobserve_property(handle, YOUTUBE_REPLY_USERDATA);
+        mpv_unobserve_property(handle, YT_REPLY_USERDATA);
         None
     };
 

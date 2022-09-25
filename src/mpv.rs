@@ -27,6 +27,14 @@ pub struct mpv_event {
     pub data: *mut c_void,
 }
 
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct mpv_event_property {
+    pub name: *const c_char,
+    pub format: mpv_format,
+    pub data: *mut c_void,
+}
+
 extern "C" {
     pub fn mpv_wait_event(ctx: *mut mpv_handle, timeout: f64) -> *mut mpv_event;
     pub fn mpv_client_name(ctx: *mut mpv_handle) -> *const c_char;
@@ -39,5 +47,11 @@ extern "C" {
         format: mpv_format,
     ) -> c_int;
     pub fn mpv_unobserve_property(mpv: *mut mpv_handle, registered_reply_userdata: u64) -> c_int;
+    pub fn mpv_set_property(
+        ctx: *mut mpv_handle,
+        name: *const c_char,
+        format: mpv_format,
+        data: *mut c_void,
+    ) -> c_int;
 }
 

@@ -781,7 +781,7 @@ dependencies = [
 [[package]]
 name = "sponsor-block"
 version = "0.6.1"
-source = "git+https://github.com/TheCactusVert/sponsorblock-rs.git#8c2a3f2ebf51c60e2c05e0de8e7bc9d8501aba38"
+source = "git+https://github.com/TheCactusVert/sponsorblock-rs.git#1575582f117eeeb8d831b8e6ed658d3d05f5d09b"
 dependencies = [
  "bitflags",
  "enum-kinds",

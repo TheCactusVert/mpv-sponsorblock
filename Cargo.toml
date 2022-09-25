@@ -15,3 +15,8 @@ log = "0.4.17"
 regex = "1.6.0"
 sponsor-block = { version = "0.6.1", git = "https://github.com/TheCactusVert/sponsorblock-rs.git" }
 
+[profile.release]
+strip = true  # Automatically strip symbols from the binary.
+codegen-units = 1
+panic = "abort"
+
