@@ -1,8 +1,7 @@
 use crate::YT_REPLY_USERDATA;
 use crate::mpv::*;
 use crate::config::Config;
-use crate::api::segment;
-use crate::api::segment::{Segments};
+use crate::sponsorblock::segment::{Segment, Segments};
 
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_void};
@@ -41,9 +40,9 @@ pub unsafe fn event(handle: *mut mpv_handle, config: &Config) -> Option<Segments
         log::debug!("YouTube ID detected: {}.", id);
         mpv_observe_property(handle, YT_REPLY_USERDATA, property_time.as_ptr(), MPV_FORMAT_DOUBLE);
         if config.privacy_api {
-            segment::from_private_api(config, id)
+            Segment::get_segments(config, id)
         } else {
-            segment::from_api(config, id)
+            Segment::get_segments_with_privacy(config, id)
         }
     } else {
         mpv_unobserve_property(handle, YT_REPLY_USERDATA);

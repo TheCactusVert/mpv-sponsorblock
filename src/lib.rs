@@ -1,12 +1,12 @@
 mod mpv;
 mod config;
 mod events;
-mod api;
+mod sponsorblock;
 
 use crate::mpv::*;
 use crate::config::Config;
 use crate::events::*;
-use crate::api::segment::{Segments};
+use crate::sponsorblock::segment::{Segments};
 
 use std::ffi::CStr;
 use std::os::raw::{c_int};
