@@ -100,7 +100,7 @@ impl Segment {
         })
         .ok()?;
 
-        // Parse the string of data into Segments.
+        // Parse the string of data into Videos.
         let videos: Videos = serde_json::from_slice(&buf).ok()?;
         Some(videos.into_iter().find(|v| v.video_id == id)?.segments)
     }

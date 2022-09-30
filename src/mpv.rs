@@ -24,6 +24,7 @@ pub struct EventProperty {
 }
 
 pub const EVENT_SHUTDOWN: EventID = 1;
+pub const EVENT_END_FILE: EventID = 7;
 pub const EVENT_FILE_LOADED: EventID = 8;
 pub const EVENT_PROPERTY_CHANGE: EventID = 22;
 pub type EventID = c_int;

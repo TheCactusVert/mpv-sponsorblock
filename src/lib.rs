@@ -33,6 +33,8 @@ pub unsafe extern "C" fn mpv_open_cplugin(handle: *mut Handle) -> c_int {
 
         if event_id == EVENT_SHUTDOWN {
             return 0;
+        } else if event_id == EVENT_END_FILE {
+            end_file::event(handle);
         } else if event_id == EVENT_FILE_LOADED {
             segments = file_loaded::event(handle, &config);
         } else if event_id == EVENT_PROPERTY_CHANGE {
