@@ -45,9 +45,9 @@ pub unsafe fn event(handle: *mut Handle, config: &Config) -> Option<Segments> {
             FORMAT_DOUBLE,
         );
         if config.privacy_api {
-            Segment::get_segments(config, id)
-        } else {
             Segment::get_segments_with_privacy(config, id)
+        } else {
+            Segment::get_segments(config, id)
         }
     } else {
         mpv_unobserve_property(handle, YT_REPLY_USERDATA);
