@@ -42,9 +42,7 @@ pub unsafe fn event(handle: *mut Handle, config: &Config) -> Option<Segments> {
 
     let c_path = mpv_get_property_string(handle, property_path.as_ptr());
     let path = CStr::from_ptr(c_path);
-
     let yt_id = get_youtube_id(path);
-    
     mpv_free(c_path as *mut c_void);
     
     match yt_id {

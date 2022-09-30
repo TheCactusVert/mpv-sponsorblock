@@ -1,0 +1,4 @@
+server_address = "https://sponsor.ajay.app"
+# Categories: sponsor, selfpromo, interaction, poi_highlight, intro, outro, preview, music_offtopic, filler, exclusive_access
+categories = ["sponsor", "selfpromo", "intro", "outro", "exclusive_access"]
+privacy_api = true
