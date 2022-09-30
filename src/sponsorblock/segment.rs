@@ -53,12 +53,23 @@ fn get_data(url: &str) -> Result<Vec<u8>, curl::Error> {
 }
 
 impl Segment {
+    fn generate_categories(config: &Config) -> String {
+        config
+            .categories
+            .iter()
+            .map(|v| format!("category={}", v))
+            .collect::<Vec<String>>()
+            .join("&")
+    }
+
     pub fn get_segments(config: &Config, id: String) -> Option<Segments> {
         log::info!("Getting segments for video {}.", id);
 
         let buf = get_data(&format!(
-            "{}/api/skipSegments?videoID={}&category=sponsor&category=selfpromo&category=intro",
-            config.server_address, id
+            "{}/api/skipSegments?videoID={}&{}",
+            config.server_address,
+            id,
+            Self::generate_categories(config)
         ))
         .map_err(|e| {
             log::error!("Failed to get SponsorBlock data: {}", e.to_string());
@@ -78,9 +89,10 @@ impl Segment {
         let hash = hasher.finalize(); // read hash digest and consume hasher
 
         let buf = get_data(&format!(
-            "{}/api/skipSegments/{:.4}?category=sponsor&category=selfpromo&category=intro",
+            "{}/api/skipSegments/{:.4}?{}",
             config.server_address,
-            hex::encode(hash)
+            hex::encode(hash),
+            Self::generate_categories(config)
         ))
         .map_err(|e| {
             log::error!("Failed to get SponsorBlock data: {}", e.to_string());
