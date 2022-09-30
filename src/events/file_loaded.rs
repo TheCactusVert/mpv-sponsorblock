@@ -1,7 +1,6 @@
 use crate::config::Config;
 use crate::mpv::*;
 use crate::sponsorblock::segment::{Segment, Segments};
-use crate::YT_REPLY_USERDATA;
 
 use std::ffi::{CStr, CString};
 use std::os::raw::c_void;
@@ -28,33 +27,20 @@ fn get_youtube_id(path: &CStr) -> Option<String> {
 }
 
 pub unsafe fn event(handle: *mut Handle, config: &Config) -> Option<Segments> {
+    log::debug!("File loaded.");
+
     let property_path = CString::new("path").unwrap();
-    let property_time = CString::new("time-pos").unwrap();
 
     let c_path = mpv_get_property_string(handle, property_path.as_ptr());
     let path = CStr::from_ptr(c_path);
 
     let yt_id = get_youtube_id(path);
-
-    let segments: Option<Segments> = if let Some(id) = yt_id {
-        log::debug!("YouTube ID detected: {}.", id);
-        mpv_observe_property(
-            handle,
-            YT_REPLY_USERDATA,
-            property_time.as_ptr(),
-            FORMAT_DOUBLE,
-        );
-        if config.privacy_api {
-            Segment::get_segments_with_privacy(config, id)
-        } else {
-            Segment::get_segments(config, id)
-        }
-    } else {
-        mpv_unobserve_property(handle, YT_REPLY_USERDATA);
-        None
-    };
-
+    
     mpv_free(c_path as *mut c_void);
-
-    segments
+    
+    match yt_id {
+        Some(id) if config.privacy_api => Segment::get_segments_with_privacy(config, id),
+        Some(id) => Segment::get_segments(config, id),
+        None => None
+    }
 }
