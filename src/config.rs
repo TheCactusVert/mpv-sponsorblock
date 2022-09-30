@@ -14,7 +14,7 @@ pub struct Config {
 
 impl Config {
     fn from_file() -> Option<Self> {
-        let config_file = dirs::config_dir()?.join("mpv-sponsorblock.toml");
+        let config_file = dirs::config_dir()?.join("mpv/sponsorblock.toml");
         Some(toml::from_str(&std::fs::read_to_string(config_file).ok()?).ok()?)
     }
 
