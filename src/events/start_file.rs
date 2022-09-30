@@ -1,7 +1,6 @@
 use crate::config::Config;
 use crate::mpv::*;
 use crate::sponsorblock::segment::{Segment, Segments};
-use crate::YT_REPLY_USERDATA;
 
 use std::ffi::{CStr, CString};
 use std::os::raw::c_void;
@@ -30,15 +29,7 @@ fn get_youtube_id(path: &CStr) -> Option<String> {
 pub unsafe fn event(handle: *mut Handle, config: &Config) -> Option<Segments> {
     log::debug!("File started.");
 
-    let property_time = CString::new("time-pos").unwrap();
     let property_path = CString::new("path").unwrap();
-
-    mpv_observe_property(
-        handle,
-        YT_REPLY_USERDATA,
-        property_time.as_ptr(),
-        FORMAT_DOUBLE,
-    );
 
     let c_path = mpv_get_property_string(handle, property_path.as_ptr());
     let path = CStr::from_ptr(c_path);

@@ -25,7 +25,6 @@ pub struct EventProperty {
 
 pub const EVENT_SHUTDOWN: EventID = 1;
 pub const EVENT_START_FILE: EventID = 6;
-pub const EVENT_END_FILE: EventID = 7;
 pub const EVENT_PROPERTY_CHANGE: EventID = 22;
 pub type EventID = c_int;
 
@@ -43,7 +42,6 @@ extern "C" {
         name: *const c_char,
         format: Format,
     ) -> c_int;
-    pub fn mpv_unobserve_property(mpv: *mut Handle, registered_reply_userdata: u64) -> c_int;
     pub fn mpv_set_property(
         ctx: *mut Handle,
         name: *const c_char,

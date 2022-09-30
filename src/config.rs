@@ -58,19 +58,19 @@ impl Config {
     pub fn get() -> Self {
         Self::from_file().unwrap_or_default()
     }
-    
+
     pub fn parameters(&self) -> String {
-        let categories = self
-            .categories
-            .iter()
-            .map(|v| format!("category={}", v));
-    
+        let categories = self.categories.iter().map(|v| format!("category={}", v));
+
         let action_types = self
             .action_types
             .iter()
             .map(|v| format!("actionType={}", v));
-        
-        categories.chain(action_types).collect::<Vec<String>>().join("&")
+
+        categories
+            .chain(action_types)
+            .collect::<Vec<String>>()
+            .join("&")
     }
 }
 

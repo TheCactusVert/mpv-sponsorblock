@@ -14,9 +14,29 @@ unsafe fn change_video_time(handle: *mut Handle, event: *mut Event, segments: &O
             return;
         }
 
-        let time_pos: c_double = *time_pos;
+        let old_time_pos: c_double = *time_pos;
+        let mut new_time_pos: c_double = old_time_pos;
 
-        for segment in segments {
+        for segment in segments.iter().filter(|s| s.action.as_str() == "skip") {
+            if new_time_pos >= segment.segment[0] && new_time_pos < segment.segment[1] {
+                log::info!(
+                    "Skipping segment [{}] from {} to {}.",
+                    segment.category,
+                    segment.segment[0],
+                    segment.segment[1]
+                );
+
+                new_time_pos = segment.segment[1];
+            }
+        }
+
+        if old_time_pos != new_time_pos {
+            let property_time = CString::new("time-pos").unwrap();
+            let data: *mut c_void = &mut new_time_pos as *mut _ as *mut c_void;
+            mpv_set_property(handle, property_time.as_ptr(), FORMAT_DOUBLE, data);
+        }
+
+        /*for segment in segments {
             let t1 = segment.segment[0];
             let mut t2 = segment.segment[1];
             match segment.action.as_str() {
@@ -29,14 +49,14 @@ unsafe fn change_video_time(handle: *mut Handle, event: *mut Event, segments: &O
                         t1,
                         t2
                     );
-                    mpv_set_property(handle, property_time.as_ptr(), FORMAT_DOUBLE, data);
+
                 }
                 "mute" => { } // Should mute a segment, seems more complicate than anything
                 "poi" => { } // Keybinding should send to point of interest but impossible in C plugins
                 "full" => { } // Should skip the whole video
                 _ => {}
             }
-        }
+        }*/
     }
 }
 
