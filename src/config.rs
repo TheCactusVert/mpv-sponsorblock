@@ -6,9 +6,9 @@ fn default_server_address() -> String {
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
-    #[serde(default="default_server_address")]
+    #[serde(default = "default_server_address")]
     pub server_address: String,
-    #[serde(default="bool::default")]
+    #[serde(default = "bool::default")]
     pub privacy_api: bool,
 }
 
@@ -17,7 +17,7 @@ impl Config {
         let config_file = dirs::config_dir()?.join("mpv-sponsorblock.toml");
         Some(toml::from_str(&std::fs::read_to_string(config_file).ok()?).ok()?)
     }
-    
+
     pub fn get() -> Self {
         Self::from_file().unwrap_or_default()
     }

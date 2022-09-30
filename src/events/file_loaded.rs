@@ -1,10 +1,10 @@
-use crate::YT_REPLY_USERDATA;
-use crate::mpv::*;
 use crate::config::Config;
+use crate::mpv::*;
 use crate::sponsorblock::segment::{Segment, Segments};
+use crate::YT_REPLY_USERDATA;
 
 use std::ffi::{CStr, CString};
-use std::os::raw::{c_void};
+use std::os::raw::c_void;
 
 use regex::Regex;
 
@@ -27,7 +27,7 @@ fn get_youtube_id(path: &CStr) -> Option<String> {
         .next()
 }
 
-pub unsafe fn event(handle: *mut mpv_handle, config: &Config) -> Option<Segments> {
+pub unsafe fn event(handle: *mut Handle, config: &Config) -> Option<Segments> {
     let property_path = CString::new("path").unwrap();
     let property_time = CString::new("time-pos").unwrap();
 
@@ -38,7 +38,12 @@ pub unsafe fn event(handle: *mut mpv_handle, config: &Config) -> Option<Segments
 
     let segments: Option<Segments> = if let Some(id) = yt_id {
         log::debug!("YouTube ID detected: {}.", id);
-        mpv_observe_property(handle, YT_REPLY_USERDATA, property_time.as_ptr(), MPV_FORMAT_DOUBLE);
+        mpv_observe_property(
+            handle,
+            YT_REPLY_USERDATA,
+            property_time.as_ptr(),
+            FORMAT_DOUBLE,
+        );
         if config.privacy_api {
             Segment::get_segments(config, id)
         } else {
@@ -50,6 +55,6 @@ pub unsafe fn event(handle: *mut mpv_handle, config: &Config) -> Option<Segments
     };
 
     mpv_free(c_path as *mut c_void);
-    
+
     segments
 }

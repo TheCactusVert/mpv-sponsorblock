@@ -2,26 +2,14 @@ use std::os::raw::{c_char, c_int, c_void};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
-pub struct mpv_handle {
+pub struct Handle {
     _unused: [u8; 0],
 }
 
-#[allow(non_camel_case_types)]
-type mpv_event_id = c_int;
-
-pub const MPV_EVENT_SHUTDOWN: mpv_event_id = 1;
-pub const MPV_EVENT_FILE_LOADED: mpv_event_id = 8;
-pub const MPV_EVENT_PROPERTY_CHANGE: mpv_event_id = 22;
-
-#[allow(non_camel_case_types)]
-pub type mpv_format = c_int;
-
-pub const MPV_FORMAT_DOUBLE: mpv_format = 5;
-
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
-pub struct mpv_event {
-    pub event_id: mpv_event_id,
+pub struct Event {
+    pub event_id: EventID,
     pub error: c_int,
     pub reply_userdata: u64,
     pub data: *mut c_void,
@@ -29,28 +17,36 @@ pub struct mpv_event {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
-pub struct mpv_event_property {
+pub struct EventProperty {
     pub name: *const c_char,
-    pub format: mpv_format,
+    pub format: Format,
     pub data: *mut c_void,
 }
 
+pub const EVENT_SHUTDOWN: EventID = 1;
+pub const EVENT_FILE_LOADED: EventID = 8;
+pub const EVENT_PROPERTY_CHANGE: EventID = 22;
+pub type EventID = c_int;
+
+pub const FORMAT_DOUBLE: Format = 5;
+pub type Format = c_int;
+
 extern "C" {
-    pub fn mpv_wait_event(ctx: *mut mpv_handle, timeout: f64) -> *mut mpv_event;
-    pub fn mpv_client_name(ctx: *mut mpv_handle) -> *const c_char;
-    pub fn mpv_get_property_string(ctx: *mut mpv_handle, name: *const c_char) -> *mut c_char;
+    pub fn mpv_wait_event(ctx: *mut Handle, timeout: f64) -> *mut Event;
+    pub fn mpv_client_name(ctx: *mut Handle) -> *const c_char;
+    pub fn mpv_get_property_string(ctx: *mut Handle, name: *const c_char) -> *mut c_char;
     pub fn mpv_free(data: *mut c_void);
     pub fn mpv_observe_property(
-        mpv: *mut mpv_handle,
+        mpv: *mut Handle,
         reply_userdata: u64,
         name: *const c_char,
-        format: mpv_format,
+        format: Format,
     ) -> c_int;
-    pub fn mpv_unobserve_property(mpv: *mut mpv_handle, registered_reply_userdata: u64) -> c_int;
+    pub fn mpv_unobserve_property(mpv: *mut Handle, registered_reply_userdata: u64) -> c_int;
     pub fn mpv_set_property(
-        ctx: *mut mpv_handle,
+        ctx: *mut Handle,
         name: *const c_char,
-        format: mpv_format,
+        format: Format,
         data: *mut c_void,
     ) -> c_int;
 }
