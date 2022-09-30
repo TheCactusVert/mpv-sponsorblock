@@ -34,20 +34,20 @@ pub unsafe fn event(handle: *mut Handle, config: &Config) -> Option<Segments> {
     let property_path = CString::new("path").unwrap();
 
     mpv_observe_property(
-            handle,
-            YT_REPLY_USERDATA,
-            property_time.as_ptr(),
-            FORMAT_DOUBLE,
-        );
+        handle,
+        YT_REPLY_USERDATA,
+        property_time.as_ptr(),
+        FORMAT_DOUBLE,
+    );
 
     let c_path = mpv_get_property_string(handle, property_path.as_ptr());
     let path = CStr::from_ptr(c_path);
     let yt_id = get_youtube_id(path);
     mpv_free(c_path as *mut c_void);
-    
+
     match yt_id {
         Some(id) if config.privacy_api => Segment::get_segments_with_privacy(config, id),
         Some(id) => Segment::get_segments(config, id),
-        None => None
+        None => None,
     }
 }

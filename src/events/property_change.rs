@@ -31,6 +31,9 @@ unsafe fn change_video_time(handle: *mut Handle, event: *mut Event, segments: &O
                     );
                     mpv_set_property(handle, property_time.as_ptr(), FORMAT_DOUBLE, data);
                 }
+                "mute" => { } // Should mute a segment, seems more complicate than anything
+                "poi" => { } // Keybinding should send to point of interest but impossible in C plugins
+                "full" => { } // Should skip the whole video
                 _ => {}
             }
         }
