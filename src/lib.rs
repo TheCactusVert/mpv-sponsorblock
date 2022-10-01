@@ -47,6 +47,8 @@ pub unsafe extern "C" fn mpv_open_cplugin(handle: *mut Handle) -> c_int {
             return 0;
         } else if event_id == EVENT_START_FILE {
             segments = start_file::event(handle, &config);
+        } else if event_id == EVENT_END_FILE {
+            segments = None;
         } else if event_id == EVENT_PROPERTY_CHANGE {
             property_change::event(handle, event, &segments);
         }
