@@ -24,7 +24,7 @@ fn get_youtube_id(path: String) -> Option<String> {
 pub fn event(mpv_handle: &MpvHandle, config: &Config) -> Option<Segments> {
     log::debug!("File started.");
 
-    let path = mpv_handle.get_property_string(b"path\0").ok()?;
+    let path = mpv_handle.get_property_string("path").ok()?;
     let yt_id = get_youtube_id(path);
 
     match yt_id {

@@ -1,4 +1,4 @@
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_int, c_void};
 
 use anyhow::Result;
@@ -14,7 +14,7 @@ pub enum MpvEventID {
 
 #[repr(i32)]
 pub enum MpvFormat {
-    DOUBLE = 5,
+    Double = 5,
 }
 
 #[repr(C)]
@@ -66,49 +66,61 @@ impl MpvHandle {
     }
 
     pub fn wait_event(&self, timeout: f64) -> MpvEvent {
-        unsafe { MpvEvent::from_ptr(mpv_wait_event(self.0, timeout)) }
+        MpvEvent::from_ptr(unsafe { mpv_wait_event(self.0, timeout) })
     }
 
     pub fn client_name(&self) -> Result<String> {
-        unsafe {
+        Ok(unsafe {
             let c_name = mpv_client_name(self.0);
             let c_str = CStr::from_ptr(c_name);
             let str_slice: &str = c_str.to_str()?;
-            Ok(str_slice.to_owned())
-        }
+            str_slice.to_owned()
+        })
     }
 
-    pub fn get_property_string(&self, name: &'static [u8]) -> Result<String> {
-        unsafe {
-            let c_path = mpv_get_property_string(self.0, name.as_ptr() as *const c_char);
+    pub fn get_property_string<S: Into<String>>(&self, name: S) -> Result<String> {
+        let c_name = CString::new(name.into())?;
+
+        Ok(unsafe {
+            let c_path = mpv_get_property_string(self.0, c_name.as_ptr());
             let c_str = CStr::from_ptr(c_path);
             let str_slice: &str = c_str.to_str()?;
             let str_buf: String = str_slice.to_owned();
             mpv_free(c_path as *mut c_void);
-            Ok(str_buf)
-        }
+            str_buf
+        })
     }
 
-    pub fn set_property<T>(&self, name: &'static [u8], format: MpvFormat, mut data: T) -> i32 {
-        unsafe {
+    pub fn set_property<S: Into<String>, T>(
+        &self,
+        name: S,
+        format: MpvFormat,
+        mut data: T,
+    ) -> Result<()> {
+        let c_name = CString::new(name.into())?;
+
+        if unsafe {
             let data: *mut c_void = &mut data as *mut _ as *mut c_void;
-            mpv_set_property(self.0, name.as_ptr() as *const c_char, format, data)
+            mpv_set_property(self.0, c_name.as_ptr(), format, data) == 0
+        } {
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Failed to set property"))
         }
     }
 
-    pub fn observe_property(
+    pub fn observe_property<S: Into<String>>(
         &self,
         reply_userdata: u64,
-        name: &'static [u8],
+        name: S,
         format: MpvFormat,
-    ) -> i32 {
-        unsafe {
-            mpv_observe_property(
-                self.0,
-                reply_userdata,
-                name.as_ptr() as *const c_char,
-                format,
-            )
+    ) -> Result<()> {
+        let c_name = CString::new(name.into())?;
+
+        if unsafe { mpv_observe_property(self.0, reply_userdata, c_name.as_ptr(), format) == 0 } {
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Failed to observe property"))
         }
     }
 }
@@ -128,7 +140,7 @@ impl MpvEvent {
     }
 
     pub fn get_event_property(&self) -> MpvEventProperty {
-        unsafe { MpvEventProperty::from_ptr((*self.0).data as *mut mpv_event_property) }
+        MpvEventProperty::from_ptr(unsafe { (*self.0).data as *mut mpv_event_property })
     }
 }
 
@@ -141,7 +153,11 @@ impl MpvEventProperty {
     pub fn get_data<T: Copy>(&self) -> Option<T> {
         unsafe {
             let data = (*self.0).data as *mut T;
-            return if data.is_null() { None } else { Some(*data) };
+            if data.is_null() {
+                None
+            } else {
+                Some(*data)
+            }
         }
     }
 }

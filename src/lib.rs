@@ -12,8 +12,6 @@ use std::os::raw::c_int;
 
 pub const WATCHER_TIME: u64 = 1;
 
-pub const PROPERTY_TIME: &'static [u8] = b"time-pos\0";
-
 #[no_mangle]
 pub extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> c_int {
     env_logger::init();
@@ -28,7 +26,10 @@ pub extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> c_int {
     let config: Config = Config::get();
     let mut segments: Option<Segments> = None;
 
-    mpv_handle.observe_property(WATCHER_TIME, PROPERTY_TIME, MpvFormat::DOUBLE);
+    if let Err(e) = mpv_handle.observe_property(WATCHER_TIME, "time-pos", MpvFormat::Double) {
+        log::error!("{}", e);
+        return -1;
+    }
 
     loop {
         let mpv_event = mpv_handle.wait_event(-1.0);

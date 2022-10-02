@@ -1,6 +1,5 @@
 use crate::mpv::*;
 use crate::sponsorblock::segment::Segments;
-use crate::PROPERTY_TIME;
 use crate::WATCHER_TIME;
 
 use std::os::raw::c_double;
@@ -28,7 +27,10 @@ fn change_video_time(mpv_handle: &MpvHandle, mpv_event: MpvEvent, segments: &Opt
         }
 
         if old_time_pos != new_time_pos {
-            mpv_handle.set_property(PROPERTY_TIME, MpvFormat::DOUBLE, new_time_pos);
+            if let Err(e) = mpv_handle.set_property("time-pos", MpvFormat::Double, new_time_pos) {
+                log::error!("{}", e);
+                return;
+            }
         }
     }
 }
