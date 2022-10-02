@@ -1,10 +1,15 @@
+use std::ffi::CStr;
 use std::os::raw::{c_char, c_int, c_void};
+
+use anyhow::Result;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
-pub struct Handle {
+pub struct mpv_handle {
     _unused: [u8; 0],
 }
+
+pub struct MpvHandle(*mut mpv_handle);
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -33,24 +38,73 @@ pub const FORMAT_DOUBLE: Format = 5;
 pub type Format = c_int;
 
 extern "C" {
-    pub fn mpv_wait_event(ctx: *mut Handle, timeout: f64) -> *mut Event;
-    pub fn mpv_client_name(ctx: *mut Handle) -> *const c_char;
-    pub fn mpv_get_property_string(ctx: *mut Handle, name: *const c_char) -> *mut c_char;
-    pub fn mpv_free(data: *mut c_void);
-    pub fn mpv_observe_property(
-        mpv: *mut Handle,
-        reply_userdata: u64,
-        name: *const c_char,
-        format: Format,
-    ) -> c_int;
-    pub fn mpv_set_property(
-        ctx: *mut Handle,
+    fn mpv_wait_event(ctx: *mut mpv_handle, timeout: f64) -> *mut Event;
+    fn mpv_client_name(ctx: *mut mpv_handle) -> *const c_char;
+    fn mpv_get_property_string(ctx: *mut mpv_handle, name: *const c_char) -> *mut c_char;
+    fn mpv_set_property(
+        ctx: *mut mpv_handle,
         name: *const c_char,
         format: Format,
         data: *mut c_void,
     ) -> c_int;
+    fn mpv_free(data: *mut c_void);
+    fn mpv_observe_property(
+        mpv: *mut mpv_handle,
+        reply_userdata: u64,
+        name: *const c_char,
+        format: Format,
+    ) -> c_int;
 }
 
-impl Handle {
+impl MpvHandle {
+    pub fn new(handle: *mut mpv_handle) -> Self {
+        Self(handle)
+    }
+
+    pub fn wait_event(&self, timeout: f64) -> *mut Event {
+        unsafe { mpv_wait_event(self.0, timeout) }
+    }
     
+    pub fn client_name(&self) -> Result<String> {
+        unsafe {
+            let c_name = mpv_client_name(self.0);
+            let c_str = CStr::from_ptr(c_name);
+            let str_slice: &str = c_str.to_str()?;
+            Ok(str_slice.to_owned())
+        }
+    }
+
+    pub fn get_property_string(&self, name: &'static [u8]) -> Result<String> {
+        unsafe {
+            let c_path = mpv_get_property_string(self.0, name.as_ptr() as *const c_char);
+            let c_str = CStr::from_ptr(c_path);
+            let str_slice: &str = c_str.to_str()?;
+            let str_buf: String = str_slice.to_owned();
+            mpv_free(c_path as *mut c_void);
+            Ok(str_buf)
+        }
+    }
+
+    pub fn set_property<T>(&self, name: &'static [u8], format: Format, mut data: T) -> i32 {
+        unsafe {
+            let data: *mut c_void = &mut data as *mut _ as *mut c_void;
+            mpv_set_property(self.0, name.as_ptr() as *const c_char, format, data)
+        }
+    }
+
+    pub fn observe_property(
+        &self,
+        reply_userdata: u64,
+        name: &'static [u8],
+        format: Format,
+    ) -> i32 {
+        unsafe {
+            mpv_observe_property(
+                self.0,
+                reply_userdata,
+                name.as_ptr() as *const c_char,
+                format,
+            )
+        }
+    }
 }

@@ -1,11 +1,15 @@
 use crate::mpv::*;
 use crate::sponsorblock::segment::Segments;
-use crate::YT_REPLY_USERDATA;
 use crate::PROPERTY_TIME;
+use crate::YT_REPLY_USERDATA;
 
-use std::os::raw::{c_void, c_char, c_double};
+use std::os::raw::c_double;
 
-unsafe fn change_video_time(handle: *mut Handle, event: *mut Event, segments: &Option<Segments>) {
+unsafe fn change_video_time(
+    mpv_handle: &MpvHandle,
+    event: *mut Event,
+    segments: &Option<Segments>,
+) {
     if let Some(segments) = segments {
         let property = (*event).data as *mut EventProperty;
         let time_pos = (*property).data as *mut c_double;
@@ -31,8 +35,7 @@ unsafe fn change_video_time(handle: *mut Handle, event: *mut Event, segments: &O
         }
 
         if old_time_pos != new_time_pos {
-            let data: *mut c_void = &mut new_time_pos as *mut _ as *mut c_void;
-            mpv_set_property(handle, PROPERTY_TIME.as_ptr() as *const c_char, FORMAT_DOUBLE, data);
+            mpv_handle.set_property(PROPERTY_TIME, FORMAT_DOUBLE, new_time_pos);
         }
 
         /*for segment in segments {
@@ -59,9 +62,9 @@ unsafe fn change_video_time(handle: *mut Handle, event: *mut Event, segments: &O
     }
 }
 
-pub unsafe fn event(handle: *mut Handle, event: *mut Event, segments: &Option<Segments>) {
+pub unsafe fn event(mpv_handle: &MpvHandle, event: *mut Event, segments: &Option<Segments>) {
     match (*event).reply_userdata {
-        YT_REPLY_USERDATA => change_video_time(handle, event, segments),
+        YT_REPLY_USERDATA => change_video_time(mpv_handle, event, segments),
         _ => {}
     }
 }

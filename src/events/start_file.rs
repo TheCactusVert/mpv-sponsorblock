@@ -1,15 +1,10 @@
 use crate::config::Config;
-use crate::mpv::*;
+use crate::mpv::MpvHandle;
 use crate::sponsorblock::segment::{Segment, Segments};
-
-use std::ffi::{CStr, CString};
-use std::os::raw::c_void;
 
 use regex::Regex;
 
-fn get_youtube_id(path: &CStr) -> Option<String> {
-    let path = path.to_str().ok()?;
-
+fn get_youtube_id(path: String) -> Option<String> {
     // I don't uderstand this crap but it's working
     let regexes = [
         Regex::new(r"https?://youtu%.be/([A-Za-z0-9-_]+).*").unwrap(),
@@ -26,15 +21,11 @@ fn get_youtube_id(path: &CStr) -> Option<String> {
         .next()
 }
 
-pub unsafe fn event(handle: *mut Handle, config: &Config) -> Option<Segments> {
+pub fn event(mpv_handle: &MpvHandle, config: &Config) -> Option<Segments> {
     log::debug!("File started.");
 
-    let property_path = CString::new("path").unwrap();
-
-    let c_path = mpv_get_property_string(handle, property_path.as_ptr());
-    let path = CStr::from_ptr(c_path);
+    let path = mpv_handle.get_property_string(b"path\0").ok()?;
     let yt_id = get_youtube_id(path);
-    mpv_free(c_path as *mut c_void);
 
     match yt_id {
         Some(id) if config.privacy_api => Segment::get_segments_with_privacy(config, id),
