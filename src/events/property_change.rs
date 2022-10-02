@@ -32,7 +32,7 @@ fn change_video_time(
         }
 
         if old_time_pos != new_time_pos {
-            mpv_handle.set_property(PROPERTY_TIME, FORMAT_DOUBLE, new_time_pos);
+            mpv_handle.set_property(PROPERTY_TIME, MpvFormat::DOUBLE, new_time_pos);
         }
 
         /*for segment in segments {

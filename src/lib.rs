@@ -28,20 +28,20 @@ pub extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> c_int {
     let config: Config = Config::get();
     let mut segments: Option<Segments> = None;
 
-    mpv_handle.observe_property(YT_REPLY_USERDATA, PROPERTY_TIME, FORMAT_DOUBLE);
+    mpv_handle.observe_property(YT_REPLY_USERDATA, PROPERTY_TIME, MpvFormat::DOUBLE);
 
     loop {
         let mpv_event: MpvEvent = mpv_handle.wait_event(-1.0);
 
         let mpv_event_id = mpv_event.get_event_id();
 
-        if mpv_event_id == EVENT_SHUTDOWN {
+        if mpv_event_id == MpvEventID::Shutdown {
             return 0;
-        } else if mpv_event_id == EVENT_START_FILE {
+        } else if mpv_event_id == MpvEventID::StartFile {
             segments = start_file::event(&mpv_handle, &config);
-        } else if mpv_event_id == EVENT_END_FILE {
+        } else if mpv_event_id == MpvEventID::EndFile {
             segments = None;
-        } else if mpv_event_id == EVENT_PROPERTY_CHANGE {
+        } else if mpv_event_id == MpvEventID::PropertyChange {
             property_change::event(&mpv_handle, mpv_event, &segments);
         }
     }

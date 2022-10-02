@@ -3,17 +3,29 @@ use std::os::raw::{c_char, c_int, c_void};
 
 use anyhow::Result;
 
+#[repr(i32)]
+#[derive(Copy, Clone, PartialEq)]
+pub enum MpvEventID {
+    Shutdown = 1,
+    StartFile = 6,
+    EndFile = 7,
+    PropertyChange = 22,
+}
+
+#[repr(i32)]
+pub enum MpvFormat {
+    DOUBLE = 5,
+}
+
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
 pub struct mpv_handle {
     _unused: [u8; 0],
 }
 pub struct MpvHandle(*mut mpv_handle);
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
 struct mpv_event {
-    pub event_id: EventID,
+    pub event_id: MpvEventID,
     pub error: c_int,
     pub reply_userdata: u64,
     pub data: *mut c_void,
@@ -21,22 +33,12 @@ struct mpv_event {
 pub struct MpvEvent(*mut mpv_event);
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
 struct mpv_event_property {
     pub name: *const c_char,
-    pub format: Format,
+    pub format: MpvFormat,
     pub data: *mut c_void,
 }
 pub struct MpvEventProperty(*mut mpv_event_property);
-
-pub const EVENT_SHUTDOWN: EventID = 1;
-pub const EVENT_START_FILE: EventID = 6;
-pub const EVENT_END_FILE: EventID = 7;
-pub const EVENT_PROPERTY_CHANGE: EventID = 22;
-pub type EventID = c_int;
-
-pub const FORMAT_DOUBLE: Format = 5;
-pub type Format = c_int;
 
 extern "C" {
     fn mpv_wait_event(ctx: *mut mpv_handle, timeout: f64) -> *mut mpv_event;
@@ -45,7 +47,7 @@ extern "C" {
     fn mpv_set_property(
         ctx: *mut mpv_handle,
         name: *const c_char,
-        format: Format,
+        format: MpvFormat,
         data: *mut c_void,
     ) -> c_int;
     fn mpv_free(data: *mut c_void);
@@ -53,7 +55,7 @@ extern "C" {
         mpv: *mut mpv_handle,
         reply_userdata: u64,
         name: *const c_char,
-        format: Format,
+        format: MpvFormat,
     ) -> c_int;
 }
 
@@ -87,7 +89,7 @@ impl MpvHandle {
         }
     }
 
-    pub fn set_property<T>(&self, name: &'static [u8], format: Format, mut data: T) -> i32 {
+    pub fn set_property<T>(&self, name: &'static [u8], format: MpvFormat, mut data: T) -> i32 {
         unsafe {
             let data: *mut c_void = &mut data as *mut _ as *mut c_void;
             mpv_set_property(self.0, name.as_ptr() as *const c_char, format, data)
@@ -98,7 +100,7 @@ impl MpvHandle {
         &self,
         reply_userdata: u64,
         name: &'static [u8],
-        format: Format,
+        format: MpvFormat,
     ) -> i32 {
         unsafe {
             mpv_observe_property(
@@ -117,7 +119,7 @@ impl MpvEvent {
         Self(event)
     }
     
-    pub fn get_event_id(&self) -> EventID {
+    pub fn get_event_id(&self) -> MpvEventID {
         unsafe {
             (*self.0).event_id
         }
