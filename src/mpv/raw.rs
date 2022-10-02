@@ -2,6 +2,7 @@ use std::os::raw::{c_char, c_int, c_void};
 
 #[repr(i32)]
 #[allow(dead_code)]
+#[allow(non_camel_case_types)]
 #[derive(Copy, Clone, PartialEq)]
 pub enum mpv_event_id {
     Shutdown = 1,
@@ -12,6 +13,7 @@ pub enum mpv_event_id {
 
 #[repr(i32)]
 #[allow(dead_code)]
+#[allow(non_camel_case_types)]
 #[derive(Copy, Clone, PartialEq)]
 pub enum mpv_format {
     None = 0,
@@ -26,11 +28,13 @@ pub enum mpv_format {
 }
 
 #[repr(C)]
+#[allow(non_camel_case_types)]
 pub struct mpv_handle {
     _unused: [u8; 0],
 }
 
 #[repr(C)]
+#[allow(non_camel_case_types)]
 pub struct mpv_event {
     pub event_id: mpv_event_id,
     pub error: c_int,
@@ -39,6 +43,7 @@ pub struct mpv_event {
 }
 
 #[repr(C)]
+#[allow(non_camel_case_types)]
 pub struct mpv_event_property {
     pub name: *const c_char,
     pub format: mpv_format,

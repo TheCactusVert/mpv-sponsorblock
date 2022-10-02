@@ -17,8 +17,7 @@ fn get_youtube_id(path: String) -> Option<String> {
     regexes
         .into_iter()
         .filter_map(|r| r.captures(&path))
-        .filter_map(|c| c.get(1).map(|m| m.as_str().to_string()))
-        .next()
+        .find_map(|c| c.get(1).map(|m| m.as_str().to_string()))
 }
 
 pub fn event(mpv_handle: &MpvHandle, config: &Config) -> Option<Segments> {
