@@ -118,23 +118,17 @@ impl MpvEvent {
         assert!(!event.is_null());
         Self(event)
     }
-    
+
     pub fn get_event_id(&self) -> MpvEventID {
-        unsafe {
-            (*self.0).event_id
-        }
+        unsafe { (*self.0).event_id }
     }
-    
+
     pub fn get_reply_userdata(&self) -> u64 {
-        unsafe {
-            (*self.0).reply_userdata
-        }
+        unsafe { (*self.0).reply_userdata }
     }
-    
+
     pub fn get_event_property(&self) -> MpvEventProperty {
-        unsafe {
-            MpvEventProperty::new((*self.0).data as *mut mpv_event_property)
-        }
+        unsafe { MpvEventProperty::new((*self.0).data as *mut mpv_event_property) }
     }
 }
 
@@ -143,15 +137,11 @@ impl MpvEventProperty {
         assert!(!event_property.is_null());
         Self(event_property)
     }
-    
+
     pub fn get_data<T: Copy>(&self) -> Option<T> {
         unsafe {
             let data = (*self.0).data as *mut T;
-            return if data.is_null() {
-                 None
-            } else {
-                Some(*data)
-            }
+            return if data.is_null() { None } else { Some(*data) };
         }
     }
 }
