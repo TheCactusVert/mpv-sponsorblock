@@ -5,22 +5,20 @@ mod sponsorblock;
 
 use crate::config::Config;
 use crate::events::*;
-use crate::mpv::*;
+use crate::mpv::{MpvEventID, MpvFormat, MpvHandle, MpvRawHandle};
 use crate::sponsorblock::segment::Segments;
-
-use std::os::raw::c_int;
 
 pub const WATCHER_TIME: u64 = 1;
 
 #[no_mangle]
-pub extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> c_int {
+pub extern "C" fn mpv_open_cplugin(handle: MpvRawHandle) -> std::os::raw::c_int {
     env_logger::init();
 
     let mpv_handle = MpvHandle::from_ptr(handle);
 
     log::info!(
         "Starting plugin SponsorBlock ({})!",
-        mpv_handle.client_name().unwrap()
+        mpv_handle.client_name().unwrap_or("Unknown".to_string())
     );
 
     let config: Config = Config::get();

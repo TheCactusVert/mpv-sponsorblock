@@ -3,64 +3,83 @@ use std::os::raw::{c_char, c_int, c_void};
 
 use anyhow::Result;
 
-#[repr(i32)]
-#[derive(Copy, Clone, PartialEq)]
-pub enum MpvEventID {
-    Shutdown = 1,
-    StartFile = 6,
-    EndFile = 7,
-    PropertyChange = 22,
+mod raw {
+    use std::os::raw::{c_char, c_int, c_void};
+
+    #[repr(i32)]
+    #[allow(dead_code)]
+    #[derive(Copy, Clone, PartialEq)]
+    pub enum mpv_event_id {
+        Shutdown = 1,
+        StartFile = 6,
+        EndFile = 7,
+        PropertyChange = 22,
+    }
+
+    #[repr(i32)]
+    #[allow(dead_code)]
+    #[derive(Copy, Clone, PartialEq)]
+    pub enum mpv_format {
+        None = 0,
+        String = 1,
+        OSDString = 2,
+        Flag = 3,
+        Int64 = 4,
+        Double = 5,
+        NodeArray = 7,
+        NodeMap = 8,
+        ByteArray = 9,
+    }
+
+    #[repr(C)]
+    pub struct mpv_handle {
+        _unused: [u8; 0],
+    }
+
+    #[repr(C)]
+    pub struct mpv_event {
+        pub event_id: mpv_event_id,
+        pub error: c_int,
+        pub reply_userdata: u64,
+        pub data: *mut c_void,
+    }
+
+    #[repr(C)]
+    pub struct mpv_event_property {
+        pub name: *const c_char,
+        pub format: mpv_format,
+        pub data: *mut c_void,
+    }
 }
 
-#[repr(i32)]
-pub enum MpvFormat {
-    Double = 5,
-}
-
-#[repr(C)]
-pub struct mpv_handle {
-    _unused: [u8; 0],
-}
-pub struct MpvHandle(*mut mpv_handle);
-
-#[repr(C)]
-struct mpv_event {
-    pub event_id: MpvEventID,
-    pub error: c_int,
-    pub reply_userdata: u64,
-    pub data: *mut c_void,
-}
-pub struct MpvEvent(*mut mpv_event);
-
-#[repr(C)]
-struct mpv_event_property {
-    pub name: *const c_char,
-    pub format: MpvFormat,
-    pub data: *mut c_void,
-}
-pub struct MpvEventProperty(*mut mpv_event_property);
+pub type MpvEventID = raw::mpv_event_id;
+pub type MpvFormat = raw::mpv_format;
+pub type MpvRawHandle = *mut raw::mpv_handle;
+pub struct MpvHandle(*mut raw::mpv_handle);
+pub struct MpvEvent(*mut raw::mpv_event);
+pub struct MpvEventProperty(*mut raw::mpv_event_property);
 
 extern "C" {
-    fn mpv_wait_event(ctx: *mut mpv_handle, timeout: f64) -> *mut mpv_event;
-    fn mpv_client_name(ctx: *mut mpv_handle) -> *const c_char;
-    fn mpv_get_property_string(ctx: *mut mpv_handle, name: *const c_char) -> *mut c_char;
+    fn mpv_wait_event(ctx: *mut raw::mpv_handle, timeout: f64) -> *mut raw::mpv_event;
+    fn mpv_client_name(ctx: *mut raw::mpv_handle) -> *const c_char;
+    fn mpv_get_property_string(ctx: *mut raw::mpv_handle, name: *const c_char) -> *mut c_char;
     fn mpv_set_property(
-        ctx: *mut mpv_handle,
+        ctx: *mut raw::mpv_handle,
         name: *const c_char,
-        format: MpvFormat,
+        format: raw::mpv_format,
         data: *mut c_void,
     ) -> c_int;
     fn mpv_free(data: *mut c_void);
     fn mpv_observe_property(
-        mpv: *mut mpv_handle,
+        mpv: *mut raw::mpv_handle,
         reply_userdata: u64,
         name: *const c_char,
-        format: MpvFormat,
+        format: raw::mpv_format,
     ) -> c_int;
 }
 
 impl MpvHandle {
-    pub fn from_ptr(handle: *mut mpv_handle) -> Self {
+    pub fn from_ptr(handle: *mut raw::mpv_handle) -> Self {
         assert!(!handle.is_null());
         Self(handle)
     }
@@ -126,7 +145,7 @@ impl MpvHandle {
 }
 
 impl MpvEvent {
-    fn from_ptr(event: *mut mpv_event) -> Self {
+    fn from_ptr(event: *mut raw::mpv_event) -> Self {
         assert!(!event.is_null());
         Self(event)
     }
@@ -140,12 +159,12 @@ impl MpvEvent {
     }
 
     pub fn get_event_property(&self) -> MpvEventProperty {
-        MpvEventProperty::from_ptr(unsafe { (*self.0).data as *mut mpv_event_property })
+        MpvEventProperty::from_ptr(unsafe { (*self.0).data as *mut raw::mpv_event_property })
     }
 }
 
 impl MpvEventProperty {
-    fn from_ptr(event_property: *mut mpv_event_property) -> Self {
+    fn from_ptr(event_property: *mut raw::mpv_event_property) -> Self {
         assert!(!event_property.is_null());
         Self(event_property)
     }
