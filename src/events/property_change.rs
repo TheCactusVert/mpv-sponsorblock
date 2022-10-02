@@ -1,7 +1,7 @@
 use crate::mpv::*;
 use crate::sponsorblock::segment::Segments;
 use crate::PROPERTY_TIME;
-use crate::YT_REPLY_USERDATA;
+use crate::WATCHER_TIME;
 
 use std::os::raw::c_double;
 
@@ -35,7 +35,7 @@ fn change_video_time(mpv_handle: &MpvHandle, mpv_event: MpvEvent, segments: &Opt
 
 pub fn event(mpv_handle: &MpvHandle, mpv_event: MpvEvent, segments: &Option<Segments>) {
     match mpv_event.get_reply_userdata() {
-        YT_REPLY_USERDATA => change_video_time(mpv_handle, mpv_event, segments),
+        WATCHER_TIME => change_video_time(mpv_handle, mpv_event, segments),
         _ => {}
     }
 }

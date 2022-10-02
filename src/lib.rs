@@ -10,7 +10,7 @@ use crate::sponsorblock::segment::Segments;
 
 use std::os::raw::c_int;
 
-pub const YT_REPLY_USERDATA: u64 = 1;
+pub const WATCHER_TIME: u64 = 1;
 
 pub const PROPERTY_TIME: &'static [u8] = b"time-pos\0";
 
@@ -28,7 +28,7 @@ pub extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> c_int {
     let config: Config = Config::get();
     let mut segments: Option<Segments> = None;
 
-    mpv_handle.observe_property(YT_REPLY_USERDATA, PROPERTY_TIME, MpvFormat::DOUBLE);
+    mpv_handle.observe_property(WATCHER_TIME, PROPERTY_TIME, MpvFormat::DOUBLE);
 
     loop {
         let mpv_event = mpv_handle.wait_event(-1.0);
