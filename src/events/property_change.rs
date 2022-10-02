@@ -5,20 +5,17 @@ use crate::YT_REPLY_USERDATA;
 
 use std::os::raw::c_double;
 
-unsafe fn change_video_time(
+fn change_video_time(
     mpv_handle: &MpvHandle,
-    event: *mut Event,
+    mpv_event: MpvEvent,
     segments: &Option<Segments>,
 ) {
     if let Some(segments) = segments {
-        let property = (*event).data as *mut EventProperty;
-        let time_pos = (*property).data as *mut c_double;
-
-        if time_pos.is_null() {
-            return;
-        }
-
-        let old_time_pos: c_double = *time_pos;
+        let event_property = mpv_event.get_event_property();
+        let old_time_pos: c_double = match event_property.get_data() {
+            Some(v) => v,
+            None => return,
+        };
         let mut new_time_pos: c_double = old_time_pos;
 
         for segment in segments.iter().filter(|s| s.action.as_str() == "skip") {
@@ -62,9 +59,9 @@ unsafe fn change_video_time(
     }
 }
 
-pub unsafe fn event(mpv_handle: &MpvHandle, event: *mut Event, segments: &Option<Segments>) {
-    match (*event).reply_userdata {
-        YT_REPLY_USERDATA => change_video_time(mpv_handle, event, segments),
+pub fn event(mpv_handle: &MpvHandle, mpv_event: MpvEvent, segments: &Option<Segments>) {
+    match mpv_event.get_reply_userdata() {
+        YT_REPLY_USERDATA => change_video_time(mpv_handle, mpv_event, segments),
         _ => {}
     }
 }

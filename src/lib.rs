@@ -15,9 +15,9 @@ pub const YT_REPLY_USERDATA: u64 = 1;
 pub const PROPERTY_TIME: &'static [u8] = b"time-pos\0";
 
 #[no_mangle]
-pub unsafe extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> c_int {
+pub extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> c_int {
     env_logger::init();
-    
+
     let mpv_handle = MpvHandle::new(handle);
 
     log::info!(
@@ -31,18 +31,18 @@ pub unsafe extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> c_int {
     mpv_handle.observe_property(YT_REPLY_USERDATA, PROPERTY_TIME, FORMAT_DOUBLE);
 
     loop {
-        let event: *mut Event = mpv_handle.wait_event(-1.0);
+        let mpv_event: MpvEvent = mpv_handle.wait_event(-1.0);
 
-        let event_id = (*event).event_id;
+        let mpv_event_id = mpv_event.get_event_id();
 
-        if event_id == EVENT_SHUTDOWN {
+        if mpv_event_id == EVENT_SHUTDOWN {
             return 0;
-        } else if event_id == EVENT_START_FILE {
+        } else if mpv_event_id == EVENT_START_FILE {
             segments = start_file::event(&mpv_handle, &config);
-        } else if event_id == EVENT_END_FILE {
+        } else if mpv_event_id == EVENT_END_FILE {
             segments = None;
-        } else if event_id == EVENT_PROPERTY_CHANGE {
-            property_change::event(&mpv_handle, event, &segments);
+        } else if mpv_event_id == EVENT_PROPERTY_CHANGE {
+            property_change::event(&mpv_handle, mpv_event, &segments);
         }
     }
 }
