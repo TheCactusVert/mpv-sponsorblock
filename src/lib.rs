@@ -8,17 +8,18 @@ use crate::events::*;
 use crate::mpv::*;
 use crate::sponsorblock::segment::Segments;
 
-use std::ffi::{CStr, CString};
-use std::os::raw::c_int;
+use std::ffi::CStr;
+use std::os::raw::{c_char, c_int};
 
 pub const YT_REPLY_USERDATA: u64 = 1;
 
+pub const PROPERTY_TIME: &'static [u8] = b"time-pos\0";
+
 unsafe fn observe_time(handle: *mut Handle) -> c_int {
-    let property_time = CString::new("time-pos").unwrap();
     mpv_observe_property(
         handle,
         YT_REPLY_USERDATA,
-        property_time.as_ptr(),
+        PROPERTY_TIME.as_ptr() as *const c_char,
         FORMAT_DOUBLE,
     )
 }

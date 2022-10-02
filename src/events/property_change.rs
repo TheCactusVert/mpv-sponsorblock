@@ -1,9 +1,9 @@
 use crate::mpv::*;
 use crate::sponsorblock::segment::Segments;
 use crate::YT_REPLY_USERDATA;
+use crate::PROPERTY_TIME;
 
-use std::ffi::CString;
-use std::os::raw::{c_double, c_void};
+use std::os::raw::{c_void, c_char, c_double};
 
 unsafe fn change_video_time(handle: *mut Handle, event: *mut Event, segments: &Option<Segments>) {
     if let Some(segments) = segments {
@@ -31,9 +31,8 @@ unsafe fn change_video_time(handle: *mut Handle, event: *mut Event, segments: &O
         }
 
         if old_time_pos != new_time_pos {
-            let property_time = CString::new("time-pos").unwrap();
             let data: *mut c_void = &mut new_time_pos as *mut _ as *mut c_void;
-            mpv_set_property(handle, property_time.as_ptr(), FORMAT_DOUBLE, data);
+            mpv_set_property(handle, PROPERTY_TIME.as_ptr() as *const c_char, FORMAT_DOUBLE, data);
         }
 
         /*for segment in segments {
