@@ -60,13 +60,13 @@ extern "C" {
 }
 
 impl MpvHandle {
-    pub fn new(handle: *mut mpv_handle) -> Self {
+    pub fn from_ptr(handle: *mut mpv_handle) -> Self {
         assert!(!handle.is_null());
         Self(handle)
     }
 
     pub fn wait_event(&self, timeout: f64) -> MpvEvent {
-        unsafe { MpvEvent::new(mpv_wait_event(self.0, timeout)) }
+        unsafe { MpvEvent::from_ptr(mpv_wait_event(self.0, timeout)) }
     }
 
     pub fn client_name(&self) -> Result<String> {
@@ -114,7 +114,7 @@ impl MpvHandle {
 }
 
 impl MpvEvent {
-    fn new(event: *mut mpv_event) -> Self {
+    fn from_ptr(event: *mut mpv_event) -> Self {
         assert!(!event.is_null());
         Self(event)
     }
@@ -128,12 +128,12 @@ impl MpvEvent {
     }
 
     pub fn get_event_property(&self) -> MpvEventProperty {
-        unsafe { MpvEventProperty::new((*self.0).data as *mut mpv_event_property) }
+        unsafe { MpvEventProperty::from_ptr((*self.0).data as *mut mpv_event_property) }
     }
 }
 
 impl MpvEventProperty {
-    fn new(event_property: *mut mpv_event_property) -> Self {
+    fn from_ptr(event_property: *mut mpv_event_property) -> Self {
         assert!(!event_property.is_null());
         Self(event_property)
     }

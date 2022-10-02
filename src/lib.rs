@@ -18,7 +18,7 @@ pub const PROPERTY_TIME: &'static [u8] = b"time-pos\0";
 pub extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> c_int {
     env_logger::init();
 
-    let mpv_handle = MpvHandle::new(handle);
+    let mpv_handle = MpvHandle::from_ptr(handle);
 
     log::info!(
         "Starting plugin SponsorBlock ({})!",
