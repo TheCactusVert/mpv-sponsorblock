@@ -1,4 +1,4 @@
-use std::os::raw::{c_char, c_int, c_void};
+use std::os::raw::{c_char, c_int, c_ulonglong, c_void};
 
 #[repr(i32)]
 #[allow(dead_code)]
@@ -38,7 +38,7 @@ pub struct mpv_handle {
 pub struct mpv_event {
     pub event_id: mpv_event_id,
     pub error: c_int,
-    pub reply_userdata: u64,
+    pub reply_userdata: c_ulonglong,
     pub data: *mut c_void,
 }
 

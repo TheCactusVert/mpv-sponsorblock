@@ -1,7 +1,7 @@
 mod raw;
 
 use std::ffi::{CStr, CString};
-use std::os::raw::{c_char, c_int, c_void};
+use std::os::raw::{c_char, c_double, c_int, c_ulonglong, c_void};
 
 use anyhow::Result;
 
@@ -13,7 +13,7 @@ pub struct MpvEvent(*mut raw::mpv_event);
 pub struct MpvEventProperty(*mut raw::mpv_event_property);
 
 extern "C" {
-    fn mpv_wait_event(ctx: *mut raw::mpv_handle, timeout: f64) -> *mut raw::mpv_event;
+    fn mpv_wait_event(ctx: *mut raw::mpv_handle, timeout: c_double) -> *mut raw::mpv_event;
     fn mpv_client_name(ctx: *mut raw::mpv_handle) -> *const c_char;
     fn mpv_get_property_string(ctx: *mut raw::mpv_handle, name: *const c_char) -> *mut c_char;
     fn mpv_set_property(
@@ -25,7 +25,7 @@ extern "C" {
     fn mpv_free(data: *mut c_void);
     fn mpv_observe_property(
         mpv: *mut raw::mpv_handle,
-        reply_userdata: u64,
+        reply_userdata: c_ulonglong,
         name: *const c_char,
         format: raw::mpv_format,
     ) -> c_int;
@@ -55,6 +55,7 @@ impl MpvHandle {
 
         Ok(unsafe {
             let c_path = mpv_get_property_string(self.0, c_name.as_ptr());
+            // TODO Maybe check if the pointer is not null ?
             let c_str = CStr::from_ptr(c_path);
             let str_slice: &str = c_str.to_str()?;
             let str_buf: String = str_slice.to_owned();
