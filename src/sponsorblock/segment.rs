@@ -1,8 +1,6 @@
 use crate::config::Config;
+use crate::utils::get_data;
 
-use std::result::Result;
-
-use curl::easy::Easy;
 use serde_derive::Deserialize;
 use sha2::{Digest, Sha256};
 
@@ -34,23 +32,6 @@ struct Video {
 }
 
 type Videos = Vec<Video>;
-
-fn get_data(url: &str) -> Result<Vec<u8>, curl::Error> {
-    let mut buf = Vec::new();
-    let mut handle = Easy::new();
-
-    handle.url(url)?;
-    {
-        let mut transfer = handle.transfer();
-        transfer.write_function(|data| {
-            buf.extend_from_slice(data);
-            Ok(data.len())
-        })?;
-        transfer.perform()?;
-    }
-
-    Ok(buf)
-}
 
 impl Segment {
     pub fn get_segments(config: &Config, id: String) -> Option<Segments> {

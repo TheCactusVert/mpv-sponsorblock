@@ -2,6 +2,7 @@ mod config;
 mod events;
 mod mpv;
 mod sponsorblock;
+mod utils;
 
 use crate::config::Config;
 use crate::events::*;
