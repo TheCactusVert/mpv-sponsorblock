@@ -1,4 +1,4 @@
-use std::os::raw::{c_char, c_int, c_ulonglong, c_void};
+use std::os::raw::{c_char, c_double, c_int, c_ulonglong, c_void};
 
 #[repr(i32)]
 #[allow(dead_code)]
@@ -48,4 +48,23 @@ pub struct mpv_event_property {
     pub name: *const c_char,
     pub format: mpv_format,
     pub data: *mut c_void,
+}
+
+extern "C" {
+    pub fn mpv_wait_event(ctx: *mut mpv_handle, timeout: c_double) -> *mut mpv_event;
+    pub fn mpv_client_name(ctx: *mut mpv_handle) -> *const c_char;
+    pub fn mpv_get_property_string(ctx: *mut mpv_handle, name: *const c_char) -> *mut c_char;
+    pub fn mpv_set_property(
+        ctx: *mut mpv_handle,
+        name: *const c_char,
+        format: mpv_format,
+        data: *mut c_void,
+    ) -> c_int;
+    pub fn mpv_free(data: *mut c_void);
+    pub fn mpv_observe_property(
+        mpv: *mut mpv_handle,
+        reply_userdata: c_ulonglong,
+        name: *const c_char,
+        format: mpv_format,
+    ) -> c_int;
 }

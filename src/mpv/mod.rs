@@ -1,7 +1,7 @@
 mod raw;
 
 use std::ffi::{CStr, CString};
-use std::os::raw::{c_char, c_double, c_int, c_ulonglong, c_void};
+use std::os::raw::c_void;
 
 use anyhow::Result;
 
@@ -12,25 +12,6 @@ pub struct MpvHandle(*mut raw::mpv_handle);
 pub struct MpvEvent(*mut raw::mpv_event);
 pub struct MpvEventProperty(*mut raw::mpv_event_property);
 
-extern "C" {
-    fn mpv_wait_event(ctx: *mut raw::mpv_handle, timeout: c_double) -> *mut raw::mpv_event;
-    fn mpv_client_name(ctx: *mut raw::mpv_handle) -> *const c_char;
-    fn mpv_get_property_string(ctx: *mut raw::mpv_handle, name: *const c_char) -> *mut c_char;
-    fn mpv_set_property(
-        ctx: *mut raw::mpv_handle,
-        name: *const c_char,
-        format: raw::mpv_format,
-        data: *mut c_void,
-    ) -> c_int;
-    fn mpv_free(data: *mut c_void);
-    fn mpv_observe_property(
-        mpv: *mut raw::mpv_handle,
-        reply_userdata: c_ulonglong,
-        name: *const c_char,
-        format: raw::mpv_format,
-    ) -> c_int;
-}
-
 impl MpvHandle {
     pub fn from_ptr(handle: *mut raw::mpv_handle) -> Self {
         assert!(!handle.is_null());
@@ -38,12 +19,12 @@ impl MpvHandle {
     }
 
     pub fn wait_event(&self, timeout: f64) -> MpvEvent {
-        MpvEvent::from_ptr(unsafe { mpv_wait_event(self.0, timeout) })
+        MpvEvent::from_ptr(unsafe { raw::mpv_wait_event(self.0, timeout) })
     }
 
     pub fn client_name(&self) -> Result<String> {
         Ok(unsafe {
-            let c_name = mpv_client_name(self.0);
+            let c_name = raw::mpv_client_name(self.0);
             let c_str = CStr::from_ptr(c_name);
             let str_slice: &str = c_str.to_str()?;
             str_slice.to_owned()
@@ -54,12 +35,12 @@ impl MpvHandle {
         let c_name = CString::new(name.into())?;
 
         Ok(unsafe {
-            let c_path = mpv_get_property_string(self.0, c_name.as_ptr());
+            let c_path = raw::mpv_get_property_string(self.0, c_name.as_ptr());
             // TODO Maybe check if the pointer is not null ?
             let c_str = CStr::from_ptr(c_path);
             let str_slice: &str = c_str.to_str()?;
             let str_buf: String = str_slice.to_owned();
-            mpv_free(c_path as *mut c_void);
+            raw::mpv_free(c_path as *mut c_void);
             str_buf
         })
     }
@@ -74,7 +55,7 @@ impl MpvHandle {
 
         if unsafe {
             let data: *mut c_void = &mut data as *mut _ as *mut c_void;
-            mpv_set_property(self.0, c_name.as_ptr(), format, data) == 0
+            raw::mpv_set_property(self.0, c_name.as_ptr(), format, data) == 0
         } {
             Ok(())
         } else {
@@ -90,7 +71,9 @@ impl MpvHandle {
     ) -> Result<()> {
         let c_name = CString::new(name.into())?;
 
-        if unsafe { mpv_observe_property(self.0, reply_userdata, c_name.as_ptr(), format) == 0 } {
+        if unsafe {
+            raw::mpv_observe_property(self.0, reply_userdata, c_name.as_ptr(), format) == 0
+        } {
             Ok(())
         } else {
             Err(anyhow::anyhow!("Failed to observe property"))
