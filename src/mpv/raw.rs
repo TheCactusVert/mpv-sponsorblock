@@ -1,4 +1,4 @@
-use std::os::raw::{c_char, c_double, c_int, c_ulonglong, c_void};
+use std::ffi::{c_char, c_double, c_int, c_ulonglong, c_void};
 
 #[repr(i32)]
 #[allow(dead_code)]
@@ -27,11 +27,8 @@ pub enum mpv_format {
     ByteArray = 9,
 }
 
-#[repr(C)]
 #[allow(non_camel_case_types)]
-pub struct mpv_handle {
-    _unused: [u8; 0],
-}
+pub type mpv_handle = c_void;
 
 #[repr(C)]
 #[allow(non_camel_case_types)]
@@ -62,7 +59,7 @@ extern "C" {
     ) -> c_int;
     pub fn mpv_free(data: *mut c_void);
     pub fn mpv_observe_property(
-        mpv: *mut mpv_handle,
+        ctx: *mut mpv_handle,
         reply_userdata: c_ulonglong,
         name: *const c_char,
         format: mpv_format,

@@ -1,7 +1,6 @@
 mod raw;
 
-use std::ffi::{CStr, CString};
-use std::os::raw::c_void;
+use std::ffi::{c_void, CStr, CString};
 
 use anyhow::Result;
 
@@ -13,7 +12,7 @@ pub struct MpvEvent(*mut raw::mpv_event);
 pub struct MpvEventProperty(*mut raw::mpv_event_property);
 
 impl MpvHandle {
-    pub fn from_ptr(handle: *mut raw::mpv_handle) -> Self {
+    pub fn from_ptr(handle: MpvRawHandle) -> Self {
         assert!(!handle.is_null());
         Self(handle)
     }
