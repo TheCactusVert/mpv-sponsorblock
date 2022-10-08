@@ -2,7 +2,7 @@ use crate::mpv::{MpvEvent, MpvFormat, MpvHandle};
 use crate::sponsorblock::segment::Segments;
 use crate::WATCHER_TIME;
 
-fn change_video_time(mpv_handle: &MpvHandle, mpv_event: MpvEvent, segments: &Option<Segments>) {
+fn event_time_change(mpv_handle: &MpvHandle, mpv_event: MpvEvent, segments: &Option<Segments>) {
     if let Some(segments) = segments {
         let event_property = mpv_event.get_event_property();
         let old_time_pos: f64 = match event_property.get_data() {
@@ -35,7 +35,7 @@ fn change_video_time(mpv_handle: &MpvHandle, mpv_event: MpvEvent, segments: &Opt
 
 pub fn event(mpv_handle: &MpvHandle, mpv_event: MpvEvent, segments: &Option<Segments>) {
     match mpv_event.get_reply_userdata() {
-        WATCHER_TIME => change_video_time(mpv_handle, mpv_event, segments),
+        WATCHER_TIME => event_time_change(mpv_handle, mpv_event, segments),
         _ => {}
     }
 }
