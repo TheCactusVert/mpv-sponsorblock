@@ -4,8 +4,9 @@ use std::ffi::{c_void, CStr, CString};
 
 use anyhow::{anyhow, Result};
 
-pub type MpvEventID = ffi::mpv_event_id;
+pub type MpvError = ffi::mpv_error;
 pub type MpvFormat = ffi::mpv_format;
+pub type MpvEventID = ffi::mpv_event_id;
 pub type MpvRawHandle = *mut ffi::mpv_handle;
 pub struct MpvHandle(*mut ffi::mpv_handle);
 pub struct MpvEvent(*mut ffi::mpv_event);
@@ -53,13 +54,14 @@ impl MpvHandle {
     ) -> Result<()> {
         let c_name = CString::new(name.into())?;
 
-        if unsafe {
+        unsafe {
             let data: *mut c_void = &mut data as *mut _ as *mut c_void;
-            ffi::mpv_set_property(self.0, c_name.as_ptr(), format, data) == 0
-        } {
-            Ok(())
-        } else {
-            Err(anyhow!("Failed to set property"))
+            match ffi::mpv_set_property(self.0, c_name.as_ptr(), format, data) {
+                MpvError::SUCCESS => Ok(()),
+                e => Err(anyhow!(CStr::from_ptr(ffi::mpv_error_string(e))
+                    .to_str()
+                    .unwrap())),
+            }
         }
     }
 
@@ -71,12 +73,13 @@ impl MpvHandle {
     ) -> Result<()> {
         let c_name = CString::new(name.into())?;
 
-        if unsafe {
-            ffi::mpv_observe_property(self.0, reply_userdata, c_name.as_ptr(), format) == 0
-        } {
-            Ok(())
-        } else {
-            Err(anyhow!("Failed to observe property"))
+        unsafe {
+            match ffi::mpv_observe_property(self.0, reply_userdata, c_name.as_ptr(), format) {
+                MpvError::SUCCESS => Ok(()),
+                e => Err(anyhow!(CStr::from_ptr(ffi::mpv_error_string(e))
+                    .to_str()
+                    .unwrap())),
+            }
         }
     }
 }
