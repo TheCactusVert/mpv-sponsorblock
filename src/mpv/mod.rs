@@ -2,7 +2,7 @@ mod ffi;
 
 use std::ffi::{c_void, CStr, CString};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 
 pub type MpvEventID = ffi::mpv_event_id;
 pub type MpvFormat = ffi::mpv_format;
@@ -33,15 +33,16 @@ impl MpvHandle {
     pub fn get_property_string<S: Into<String>>(&self, name: S) -> Result<String> {
         let c_name = CString::new(name.into())?;
 
-        Ok(unsafe {
+        unsafe {
             let c_path = ffi::mpv_get_property_string(self.0, c_name.as_ptr());
-            // TODO Maybe check if the pointer is not null ?
+            if c_path.is_null() {
+                return Err(anyhow!("Failed to get property"));
+            }
             let c_str = CStr::from_ptr(c_path);
-            let str_slice: &str = c_str.to_str()?;
-            let str_buf: String = str_slice.to_owned();
+            let str_buf = c_str.to_str().map(|s| s.to_owned()).map_err(|e| anyhow!(e));
             ffi::mpv_free(c_path as *mut c_void);
             str_buf
-        })
+        }
     }
 
     pub fn set_property<S: Into<String>, T>(
@@ -58,7 +59,7 @@ impl MpvHandle {
         } {
             Ok(())
         } else {
-            Err(anyhow::anyhow!("Failed to set property"))
+            Err(anyhow!("Failed to set property"))
         }
     }
 
@@ -75,7 +76,7 @@ impl MpvHandle {
         } {
             Ok(())
         } else {
-            Err(anyhow::anyhow!("Failed to observe property"))
+            Err(anyhow!("Failed to observe property"))
         }
     }
 }
