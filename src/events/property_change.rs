@@ -1,12 +1,8 @@
-use crate::mpv::{MpvEventProperty, MpvFormat, MpvHandle, MpvReplyUser};
+use crate::mpv::{EventProperty, Format, Handle, ReplyUser};
 use crate::sponsorblock::segment::Segments;
 use crate::WATCHER_TIME;
 
-fn event_time_change(
-    mpv_handle: &MpvHandle,
-    mpv_event: MpvEventProperty,
-    segments: &Option<Segments>,
-) {
+fn event_time_change(mpv_handle: &Handle, mpv_event: EventProperty, segments: &Option<Segments>) {
     if let Some(segments) = segments {
         let old_time_pos: f64 = match mpv_event.get_data() {
             Some(v) => v,
@@ -28,7 +24,7 @@ fn event_time_change(
         }
 
         if old_time_pos != new_time_pos {
-            if let Err(e) = mpv_handle.set_property("time-pos", MpvFormat::DOUBLE, new_time_pos) {
+            if let Err(e) = mpv_handle.set_property("time-pos", Format::DOUBLE, new_time_pos) {
                 log::error!("Failed to set time position property: {}", e);
             }
         }
@@ -36,9 +32,9 @@ fn event_time_change(
 }
 
 pub fn event(
-    mpv_handle: &MpvHandle,
-    mpv_reply: MpvReplyUser,
-    mpv_event: MpvEventProperty,
+    mpv_handle: &Handle,
+    mpv_reply: ReplyUser,
+    mpv_event: EventProperty,
     segments: &Option<Segments>,
 ) {
     match mpv_reply {

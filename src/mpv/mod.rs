@@ -6,17 +6,17 @@ use std::fmt;
 
 use anyhow::{anyhow, Result};
 
-pub type MpvFormat = ffi::mpv_format;
-pub type MpvRawHandle = *mut ffi::mpv_handle;
-pub type MpvReplyUser = u64;
-pub struct MpvHandle(*mut ffi::mpv_handle);
-pub struct MpvEventProperty(*mut ffi::mpv_event_property);
+pub type Format = ffi::mpv_format;
+pub type RawHandle = *mut ffi::mpv_handle;
+pub type ReplyUser = u64;
+pub struct Handle(*mut ffi::mpv_handle);
+pub struct EventProperty(*mut ffi::mpv_event_property);
 
-pub enum MpvEventID {
+pub enum EventID {
     None,
     Shutdown,
     LogMessage, // TODO mpv_event_log_message
-    GetPropertyReply(MpvReplyUser, MpvEventProperty),
+    GetPropertyReply(ReplyUser, EventProperty),
     SetPropertyReply,
     CommandReply, // TODO mpv_event_command
     StartFile,    // TODO mpv_event_start_file
@@ -27,12 +27,12 @@ pub enum MpvEventID {
     AudioReconfig,
     Seek,
     PlaybackRestart,
-    PropertyChange(MpvReplyUser, MpvEventProperty),
+    PropertyChange(ReplyUser, EventProperty),
     QueueOverflow,
     Hook, // TODO mpv_event_hook
 }
 
-impl fmt::Display for MpvEventID {
+impl fmt::Display for EventID {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Self::None => write!(f, "none"),
@@ -56,44 +56,44 @@ impl fmt::Display for MpvEventID {
     }
 }
 
-impl MpvHandle {
-    pub fn from_ptr(handle: MpvRawHandle) -> Self {
+impl Handle {
+    pub fn from_ptr(handle: RawHandle) -> Self {
         assert!(!handle.is_null());
         Self(handle)
     }
 
-    pub fn wait_event(&self, timeout: f64) -> MpvEventID {
+    pub fn wait_event(&self, timeout: f64) -> EventID {
         unsafe {
             let mpv_event = ffi::mpv_wait_event(self.0, timeout);
 
             if mpv_event.is_null() {
-                return MpvEventID::None;
+                return EventID::None;
             }
 
             match (*mpv_event).event_id {
-                ffi::mpv_event_id::SHUTDOWN => MpvEventID::Shutdown,
-                ffi::mpv_event_id::LOG_MESSAGE => MpvEventID::LogMessage,
-                ffi::mpv_event_id::GET_PROPERTY_REPLY => MpvEventID::GetPropertyReply(
+                ffi::mpv_event_id::SHUTDOWN => EventID::Shutdown,
+                ffi::mpv_event_id::LOG_MESSAGE => EventID::LogMessage,
+                ffi::mpv_event_id::GET_PROPERTY_REPLY => EventID::GetPropertyReply(
                     (*mpv_event).reply_userdata,
-                    MpvEventProperty::from_ptr((*mpv_event).data as *mut ffi::mpv_event_property),
+                    EventProperty::from_ptr((*mpv_event).data as *mut ffi::mpv_event_property),
                 ),
-                ffi::mpv_event_id::SET_PROPERTY_REPLY => MpvEventID::SetPropertyReply,
-                ffi::mpv_event_id::COMMAND_REPLY => MpvEventID::CommandReply,
-                ffi::mpv_event_id::START_FILE => MpvEventID::StartFile,
-                ffi::mpv_event_id::END_FILE => MpvEventID::EndFile,
-                ffi::mpv_event_id::FILE_LOADED => MpvEventID::FileLoaded,
-                ffi::mpv_event_id::CLIENT_MESSAGE => MpvEventID::ClientMessage,
-                ffi::mpv_event_id::VIDEO_RECONFIG => MpvEventID::VideoReconfig,
-                ffi::mpv_event_id::AUDIO_RECONFIG => MpvEventID::AudioReconfig,
-                ffi::mpv_event_id::SEEK => MpvEventID::Seek,
-                ffi::mpv_event_id::PLAYBACK_RESTART => MpvEventID::PlaybackRestart,
-                ffi::mpv_event_id::PROPERTY_CHANGE => MpvEventID::PropertyChange(
+                ffi::mpv_event_id::SET_PROPERTY_REPLY => EventID::SetPropertyReply,
+                ffi::mpv_event_id::COMMAND_REPLY => EventID::CommandReply,
+                ffi::mpv_event_id::START_FILE => EventID::StartFile,
+                ffi::mpv_event_id::END_FILE => EventID::EndFile,
+                ffi::mpv_event_id::FILE_LOADED => EventID::FileLoaded,
+                ffi::mpv_event_id::CLIENT_MESSAGE => EventID::ClientMessage,
+                ffi::mpv_event_id::VIDEO_RECONFIG => EventID::VideoReconfig,
+                ffi::mpv_event_id::AUDIO_RECONFIG => EventID::AudioReconfig,
+                ffi::mpv_event_id::SEEK => EventID::Seek,
+                ffi::mpv_event_id::PLAYBACK_RESTART => EventID::PlaybackRestart,
+                ffi::mpv_event_id::PROPERTY_CHANGE => EventID::PropertyChange(
                     (*mpv_event).reply_userdata,
-                    MpvEventProperty::from_ptr((*mpv_event).data as *mut ffi::mpv_event_property),
+                    EventProperty::from_ptr((*mpv_event).data as *mut ffi::mpv_event_property),
                 ),
-                ffi::mpv_event_id::QUEUE_OVERFLOW => MpvEventID::QueueOverflow,
-                ffi::mpv_event_id::HOOK => MpvEventID::Hook,
-                _ => MpvEventID::None,
+                ffi::mpv_event_id::QUEUE_OVERFLOW => EventID::QueueOverflow,
+                ffi::mpv_event_id::HOOK => EventID::Hook,
+                _ => EventID::None,
             }
         }
     }
@@ -125,7 +125,7 @@ impl MpvHandle {
     pub fn set_property<S: Into<String>, T>(
         &self,
         name: S,
-        format: MpvFormat,
+        format: Format,
         mut data: T,
     ) -> Result<()> {
         let c_name = CString::new(name.into())?;
@@ -145,7 +145,7 @@ impl MpvHandle {
         &self,
         reply_userdata: u64,
         name: S,
-        format: MpvFormat,
+        format: Format,
     ) -> Result<()> {
         let c_name = CString::new(name.into())?;
 
@@ -160,7 +160,7 @@ impl MpvHandle {
     }
 }
 
-impl MpvEventProperty {
+impl EventProperty {
     fn from_ptr(event_property: *mut ffi::mpv_event_property) -> Self {
         assert!(!event_property.is_null()); // TODO dangerous
         Self(event_property)

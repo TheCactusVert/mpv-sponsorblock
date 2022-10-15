@@ -6,16 +6,16 @@ mod utils;
 
 use crate::config::Config;
 use crate::events::*;
-use crate::mpv::{MpvEventID, MpvFormat, MpvHandle, MpvRawHandle};
+use crate::mpv::{EventID, Format, Handle, RawHandle};
 use crate::sponsorblock::segment::Segments;
 
 pub const WATCHER_TIME: u64 = 1;
 
 #[no_mangle]
-pub extern "C" fn mpv_open_cplugin(handle: MpvRawHandle) -> std::os::raw::c_int {
+pub extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
     env_logger::init();
 
-    let mpv_handle = MpvHandle::from_ptr(handle);
+    let mpv_handle = Handle::from_ptr(handle);
 
     log::debug!(
         "Starting plugin SponsorBlock ({})!",
@@ -25,26 +25,26 @@ pub extern "C" fn mpv_open_cplugin(handle: MpvRawHandle) -> std::os::raw::c_int 
     let config: Config = Config::get();
     let mut segments: Option<Segments> = None;
 
-    if let Err(e) = mpv_handle.observe_property(WATCHER_TIME, "time-pos", MpvFormat::DOUBLE) {
+    if let Err(e) = mpv_handle.observe_property(WATCHER_TIME, "time-pos", Format::DOUBLE) {
         log::error!("Failed to observe time position property: {}", e);
         return -1;
     }
 
     loop {
         match mpv_handle.wait_event(-1.0) {
-            MpvEventID::Shutdown => {
+            EventID::Shutdown => {
                 return 0;
             }
-            MpvEventID::StartFile => {
+            EventID::StartFile => {
                 segments = start_file::event(&mpv_handle, &config);
             }
-            MpvEventID::EndFile => {
+            EventID::EndFile => {
                 segments = None;
             }
-            MpvEventID::PropertyChange(mpv_reply, mpv_event) => {
+            EventID::PropertyChange(mpv_reply, mpv_event) => {
                 property_change::event(&mpv_handle, mpv_reply, mpv_event, &segments);
             }
-            MpvEventID::None => {
+            EventID::None => {
                 // Do nothing
             }
             event => {
