@@ -3,7 +3,7 @@ use std::ffi::{c_char, c_double, c_ulonglong, c_void};
 #[repr(i32)]
 #[allow(dead_code)]
 #[allow(non_camel_case_types)]
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum mpv_error {
     SUCCESS = 0,
     EVENT_QUEUE_FULL = -1,

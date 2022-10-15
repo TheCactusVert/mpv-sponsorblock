@@ -11,6 +11,7 @@ pub struct Handle(*mut ffi::mpv_handle);
 pub struct EventStartFile(*mut ffi::mpv_event_start_file);
 pub struct EventProperty(*mut ffi::mpv_event_property);
 
+#[derive(Debug)]
 pub struct Error(ffi::mpv_error, Option<ReplyUser>);
 pub type Result<T> = std::result::Result<T, Error>;
 

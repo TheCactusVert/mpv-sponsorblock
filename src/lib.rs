@@ -4,12 +4,13 @@ mod mpv;
 mod sponsorblock;
 mod utils;
 
+use crate::actions::Actions;
 use crate::config::Config;
 use crate::mpv::{Event, Format, Handle, RawHandle};
-use crate::sponsorblock::segment::Segments;
 
-pub const REPLY_TIME_CHANGE: u64 = 1;
+const REPLY_TIME_CHANGE: u64 = 1;
 
+// MPV entry point
 #[no_mangle]
 pub extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
     env_logger::init();
@@ -21,27 +22,32 @@ pub extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
         mpv_handle.client_name()
     );
 
+    // Load config file
     let config: Config = Config::get();
-    let mut segments: Option<Segments> = None;
 
+    // Create actions handler
+    let mut actions: Actions = Actions::new();
+
+    // Subscribe to property time-pos
     if let Err(e) = mpv_handle.observe_property(REPLY_TIME_CHANGE, "time-pos", Format::DOUBLE) {
         log::error!("Failed to observe time position property: {}", e);
         return -1;
     }
 
     loop {
+        // Wait for MPV event indefinitely
         match mpv_handle.wait_event(-1.0) {
             Ok((_, Event::Shutdown)) => {
                 return 0;
             }
             Ok((_, Event::StartFile(_mpv_event))) => {
-                segments = actions::load_segments(&mpv_handle, &config);
+                actions.load_segments(&mpv_handle, &config);
             }
             Ok((_, Event::EndFile)) => {
-                segments = None;
+                actions.drop_segments();
             }
             Ok((REPLY_TIME_CHANGE, Event::PropertyChange(mpv_event))) => {
-                actions::skip_segments(&mpv_handle, mpv_event, &segments);
+                actions.skip_segments(&mpv_handle, mpv_event);
             }
             Ok((_, Event::None)) => {
                 // Do nothing
