@@ -1,11 +1,10 @@
+mod actions;
 mod config;
-mod events;
 mod mpv;
 mod sponsorblock;
 mod utils;
 
 use crate::config::Config;
-use crate::events::*;
 use crate::mpv::{Event, Format, Handle, RawHandle};
 use crate::sponsorblock::segment::Segments;
 
@@ -36,19 +35,19 @@ pub extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                 return 0;
             }
             Ok((_, Event::StartFile(_mpv_event))) => {
-                segments = start_file::event(&mpv_handle, &config);
+                segments = actions::load_segments(&mpv_handle, &config);
             }
             Ok((_, Event::EndFile)) => {
                 segments = None;
             }
             Ok((REPLY_TIME_CHANGE, Event::PropertyChange(mpv_event))) => {
-                property_change::event_time_change(&mpv_handle, mpv_event, &segments);
+                actions::change_time(&mpv_handle, mpv_event, &segments);
             }
             Ok((_, Event::None)) => {
                 // Do nothing
             }
             Ok((reply, event)) => {
-                log::trace!("Ignoring event named: {} (reply {})", event, reply)
+                log::trace!("Ignoring {} event for reply {}", event, reply)
             }
             Err(e) => {
                 log::error!("Asynchronous call failed: {}", e)

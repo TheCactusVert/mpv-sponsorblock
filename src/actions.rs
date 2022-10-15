@@ -1,11 +1,20 @@
+use crate::config::Config;
 use crate::mpv::{EventProperty, Format, Handle};
-use crate::sponsorblock::segment::Segments;
+use crate::sponsorblock::segment::{Segment, Segments};
+use crate::utils::get_youtube_id;
 
-pub fn event_time_change(
-    mpv_handle: &Handle,
-    mpv_event: EventProperty,
-    segments: &Option<Segments>,
-) {
+pub fn load_segments(mpv_handle: &Handle, config: &Config) -> Option<Segments> {
+    let path = mpv_handle.get_property_string("path").ok()?;
+    let yt_id = get_youtube_id(&path);
+
+    match yt_id {
+        Some(id) if config.privacy_api => Segment::get_segments_with_privacy(config, id),
+        Some(id) => Segment::get_segments(config, id),
+        None => None,
+    }
+}
+
+pub fn change_time(mpv_handle: &Handle, mpv_event: EventProperty, segments: &Option<Segments>) {
     if let Some(segments) = segments {
         let old_time_pos: f64 = match mpv_event.get_data() {
             Some(v) => v,
