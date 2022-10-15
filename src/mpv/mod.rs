@@ -21,7 +21,7 @@ impl Error {
 
 impl From<std::str::Utf8Error> for Error {
     fn from(_: std::str::Utf8Error) -> Self {
-        Self::new(ffi::mpv_error::UNSUPPORTED)
+        Self::new(ffi::mpv_error::GENERIC)
     }
 }
 
@@ -182,7 +182,7 @@ impl Handle {
 
 impl EventProperty {
     fn from_ptr(event_property: *mut ffi::mpv_event_property) -> Self {
-        assert!(!event_property.is_null()); // TODO dangerous
+        assert!(!event_property.is_null());
         Self(event_property)
     }
 
