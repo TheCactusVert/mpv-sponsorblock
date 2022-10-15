@@ -4,15 +4,39 @@ use std::any::TypeId;
 use std::ffi::{c_void, CStr, CString};
 use std::fmt;
 
-use anyhow::{anyhow, Result};
-
 pub type Format = ffi::mpv_format;
 pub type RawHandle = *mut ffi::mpv_handle;
 pub type ReplyUser = u64;
 pub struct Handle(*mut ffi::mpv_handle);
 pub struct EventProperty(*mut ffi::mpv_event_property);
 
-pub enum EventID {
+pub struct Error(ffi::mpv_error);
+pub type Result<T> = std::result::Result<T, Error>;
+
+impl Error {
+    fn new(error: ffi::mpv_error) -> Self {
+        Self(error)
+    }
+}
+
+impl From<std::str::Utf8Error> for Error {
+    fn from(_: std::str::Utf8Error) -> Self {
+        Self::new(ffi::mpv_error::UNSUPPORTED)
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let e_str = unsafe {
+            CStr::from_ptr(ffi::mpv_error_string(self.0))
+                .to_str()
+                .unwrap_or("unknow error")
+        };
+        write!(f, "{}", e_str)
+    }
+}
+
+pub enum Event {
     None,
     Shutdown,
     LogMessage, // TODO mpv_event_log_message
@@ -32,7 +56,7 @@ pub enum EventID {
     Hook, // TODO mpv_event_hook
 }
 
-impl fmt::Display for EventID {
+impl fmt::Display for Event {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Self::None => write!(f, "none"),
@@ -62,63 +86,63 @@ impl Handle {
         Self(handle)
     }
 
-    pub fn wait_event(&self, timeout: f64) -> EventID {
+    pub fn wait_event(&self, timeout: f64) -> Event {
         unsafe {
             let mpv_event = ffi::mpv_wait_event(self.0, timeout);
 
             if mpv_event.is_null() {
-                return EventID::None;
+                return Event::None;
             }
 
             match (*mpv_event).event_id {
-                ffi::mpv_event_id::SHUTDOWN => EventID::Shutdown,
-                ffi::mpv_event_id::LOG_MESSAGE => EventID::LogMessage,
-                ffi::mpv_event_id::GET_PROPERTY_REPLY => EventID::GetPropertyReply(
+                ffi::mpv_event_id::SHUTDOWN => Event::Shutdown,
+                ffi::mpv_event_id::LOG_MESSAGE => Event::LogMessage,
+                ffi::mpv_event_id::GET_PROPERTY_REPLY => Event::GetPropertyReply(
                     (*mpv_event).reply_userdata,
                     EventProperty::from_ptr((*mpv_event).data as *mut ffi::mpv_event_property),
                 ),
-                ffi::mpv_event_id::SET_PROPERTY_REPLY => EventID::SetPropertyReply,
-                ffi::mpv_event_id::COMMAND_REPLY => EventID::CommandReply,
-                ffi::mpv_event_id::START_FILE => EventID::StartFile,
-                ffi::mpv_event_id::END_FILE => EventID::EndFile,
-                ffi::mpv_event_id::FILE_LOADED => EventID::FileLoaded,
-                ffi::mpv_event_id::CLIENT_MESSAGE => EventID::ClientMessage,
-                ffi::mpv_event_id::VIDEO_RECONFIG => EventID::VideoReconfig,
-                ffi::mpv_event_id::AUDIO_RECONFIG => EventID::AudioReconfig,
-                ffi::mpv_event_id::SEEK => EventID::Seek,
-                ffi::mpv_event_id::PLAYBACK_RESTART => EventID::PlaybackRestart,
-                ffi::mpv_event_id::PROPERTY_CHANGE => EventID::PropertyChange(
+                ffi::mpv_event_id::SET_PROPERTY_REPLY => Event::SetPropertyReply,
+                ffi::mpv_event_id::COMMAND_REPLY => Event::CommandReply,
+                ffi::mpv_event_id::START_FILE => Event::StartFile,
+                ffi::mpv_event_id::END_FILE => Event::EndFile,
+                ffi::mpv_event_id::FILE_LOADED => Event::FileLoaded,
+                ffi::mpv_event_id::CLIENT_MESSAGE => Event::ClientMessage,
+                ffi::mpv_event_id::VIDEO_RECONFIG => Event::VideoReconfig,
+                ffi::mpv_event_id::AUDIO_RECONFIG => Event::AudioReconfig,
+                ffi::mpv_event_id::SEEK => Event::Seek,
+                ffi::mpv_event_id::PLAYBACK_RESTART => Event::PlaybackRestart,
+                ffi::mpv_event_id::PROPERTY_CHANGE => Event::PropertyChange(
                     (*mpv_event).reply_userdata,
                     EventProperty::from_ptr((*mpv_event).data as *mut ffi::mpv_event_property),
                 ),
-                ffi::mpv_event_id::QUEUE_OVERFLOW => EventID::QueueOverflow,
-                ffi::mpv_event_id::HOOK => EventID::Hook,
-                _ => EventID::None,
+                ffi::mpv_event_id::QUEUE_OVERFLOW => Event::QueueOverflow,
+                ffi::mpv_event_id::HOOK => Event::Hook,
+                _ => Event::None,
             }
         }
     }
 
-    pub fn client_name(&self) -> Result<String> {
-        Ok(unsafe {
+    pub fn client_name(&self) -> String {
+        unsafe {
             let c_name = ffi::mpv_client_name(self.0);
             let c_str = CStr::from_ptr(c_name);
-            let str_slice: &str = c_str.to_str()?;
+            let str_slice: &str = c_str.to_str().unwrap_or("unknown");
             str_slice.to_owned()
-        })
+        }
     }
 
     pub fn get_property_string<S: Into<String>>(&self, name: S) -> Result<String> {
-        let c_name = CString::new(name.into())?;
+        let c_name = CString::new(name.into()).expect("CString::new failed");
 
         unsafe {
             let c_path = ffi::mpv_get_property_string(self.0, c_name.as_ptr());
             if c_path.is_null() {
-                return Err(anyhow!("Failed to get property"));
+                return Err(Error::new(ffi::mpv_error::PROPERTY_NOT_FOUND));
             }
             let c_str = CStr::from_ptr(c_path);
-            let str_buf = c_str.to_str().map(|s| s.to_owned()).map_err(|e| anyhow!(e));
+            let str_buf = c_str.to_str().map(|s| s.to_owned());
             ffi::mpv_free(c_path as *mut c_void);
-            str_buf
+            Ok(str_buf?) // Meh it shouldn't fail
         }
     }
 
@@ -128,15 +152,13 @@ impl Handle {
         format: Format,
         mut data: T,
     ) -> Result<()> {
-        let c_name = CString::new(name.into())?;
+        let c_name = CString::new(name.into()).expect("CString::new failed");
 
         unsafe {
             let data: *mut c_void = &mut data as *mut _ as *mut c_void;
             match ffi::mpv_set_property(self.0, c_name.as_ptr(), format, data) {
                 ffi::mpv_error::SUCCESS => Ok(()),
-                e => Err(anyhow!(CStr::from_ptr(ffi::mpv_error_string(e))
-                    .to_str()
-                    .unwrap())),
+                e => Err(Error::new(e)),
             }
         }
     }
@@ -147,14 +169,12 @@ impl Handle {
         name: S,
         format: Format,
     ) -> Result<()> {
-        let c_name = CString::new(name.into())?;
+        let c_name = CString::new(name.into()).expect("CString::new failed");
 
         unsafe {
             match ffi::mpv_observe_property(self.0, reply_userdata, c_name.as_ptr(), format) {
                 ffi::mpv_error::SUCCESS => Ok(()),
-                e => Err(anyhow!(CStr::from_ptr(ffi::mpv_error_string(e))
-                    .to_str()
-                    .unwrap())),
+                e => Err(Error::new(e)),
             }
         }
     }

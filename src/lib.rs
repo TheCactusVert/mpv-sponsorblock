@@ -6,7 +6,7 @@ mod utils;
 
 use crate::config::Config;
 use crate::events::*;
-use crate::mpv::{EventID, Format, Handle, RawHandle};
+use crate::mpv::{Event, Format, Handle, RawHandle};
 use crate::sponsorblock::segment::Segments;
 
 pub const WATCHER_TIME: u64 = 1;
@@ -19,7 +19,7 @@ pub extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
 
     log::debug!(
         "Starting plugin SponsorBlock ({})!",
-        mpv_handle.client_name().unwrap_or("Unknown".to_string())
+        mpv_handle.client_name()
     );
 
     let config: Config = Config::get();
@@ -32,19 +32,19 @@ pub extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
 
     loop {
         match mpv_handle.wait_event(-1.0) {
-            EventID::Shutdown => {
+            Event::Shutdown => {
                 return 0;
             }
-            EventID::StartFile => {
+            Event::StartFile => {
                 segments = start_file::event(&mpv_handle, &config);
             }
-            EventID::EndFile => {
+            Event::EndFile => {
                 segments = None;
             }
-            EventID::PropertyChange(mpv_reply, mpv_event) => {
+            Event::PropertyChange(mpv_reply, mpv_event) => {
                 property_change::event(&mpv_handle, mpv_reply, mpv_event, &segments);
             }
-            EventID::None => {
+            Event::None => {
                 // Do nothing
             }
             event => {
