@@ -14,7 +14,7 @@ pub fn load_segments(mpv_handle: &Handle, config: &Config) -> Option<Segments> {
     }
 }
 
-pub fn change_time(mpv_handle: &Handle, mpv_event: EventProperty, segments: &Option<Segments>) {
+pub fn skip_segments(mpv_handle: &Handle, mpv_event: EventProperty, segments: &Option<Segments>) {
     if let Some(segments) = segments {
         let old_time_pos: f64 = match mpv_event.get_data() {
             Some(v) => v,

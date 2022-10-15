@@ -41,7 +41,7 @@ pub extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                 segments = None;
             }
             Ok((REPLY_TIME_CHANGE, Event::PropertyChange(mpv_event))) => {
-                actions::change_time(&mpv_handle, mpv_event, &segments);
+                actions::skip_segments(&mpv_handle, mpv_event, &segments);
             }
             Ok((_, Event::None)) => {
                 // Do nothing
