@@ -8,14 +8,19 @@ pub type Format = ffi::mpv_format;
 pub type RawHandle = *mut ffi::mpv_handle;
 pub type ReplyUser = u64;
 pub struct Handle(*mut ffi::mpv_handle);
+pub struct EventStartFile(*mut ffi::mpv_event_start_file);
 pub struct EventProperty(*mut ffi::mpv_event_property);
 
-pub struct Error(ffi::mpv_error);
+pub struct Error(ffi::mpv_error, Option<ReplyUser>);
 pub type Result<T> = std::result::Result<T, Error>;
 
 impl Error {
     fn new(error: ffi::mpv_error) -> Self {
-        Self(error)
+        Self(error, None)
+    }
+
+    fn new_with_reply(error: ffi::mpv_error, reply: ReplyUser) -> Self {
+        Self(error, Some(reply))
     }
 }
 
@@ -32,7 +37,12 @@ impl fmt::Display for Error {
                 .to_str()
                 .unwrap_or("unknow error")
         };
-        write!(f, "{}", e_str)
+        write!(f, "{}", e_str)?;
+        if let Some(reply) = self.1 {
+            write!(f, " on reply {}", reply)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -40,18 +50,18 @@ pub enum Event {
     None,
     Shutdown,
     LogMessage, // TODO mpv_event_log_message
-    GetPropertyReply(ReplyUser, EventProperty),
+    GetPropertyReply(EventProperty),
     SetPropertyReply,
     CommandReply, // TODO mpv_event_command
-    StartFile,    // TODO mpv_event_start_file
-    EndFile,      // TODO mpv_event_end_file
+    StartFile(EventStartFile),
+    EndFile, // TODO mpv_event_end_file
     FileLoaded,
     ClientMessage, // TODO mpv_event_client_message
     VideoReconfig,
     AudioReconfig,
     Seek,
     PlaybackRestart,
-    PropertyChange(ReplyUser, EventProperty),
+    PropertyChange(EventProperty),
     QueueOverflow,
     Hook, // TODO mpv_event_hook
 }
@@ -62,10 +72,10 @@ impl fmt::Display for Event {
             Self::None => write!(f, "none"),
             Self::Shutdown => write!(f, "shutdown"),
             Self::LogMessage => write!(f, "log message"),
-            Self::GetPropertyReply(_, _) => write!(f, "get property reply"),
+            Self::GetPropertyReply(_) => write!(f, "get property reply"),
             Self::SetPropertyReply => write!(f, "set property reply"),
             Self::CommandReply => write!(f, "command reply"),
-            Self::StartFile => write!(f, "start file"),
+            Self::StartFile(_) => write!(f, "start file"),
             Self::EndFile => write!(f, "end file"),
             Self::FileLoaded => write!(f, "file loaded"),
             Self::ClientMessage => write!(f, "client message"),
@@ -73,7 +83,7 @@ impl fmt::Display for Event {
             Self::AudioReconfig => write!(f, "audio reconfig"),
             Self::Seek => write!(f, "seek"),
             Self::PlaybackRestart => write!(f, "playback restart"),
-            Self::PropertyChange(_, _) => write!(f, "property change"),
+            Self::PropertyChange(_) => write!(f, "property change"),
             Self::QueueOverflow => write!(f, "queue overflow"),
             Self::Hook => write!(f, "hook"),
         }
@@ -86,39 +96,49 @@ impl Handle {
         Self(handle)
     }
 
-    pub fn wait_event(&self, timeout: f64) -> Event {
+    pub fn wait_event(&self, timeout: f64) -> Result<(ReplyUser, Event)> {
         unsafe {
             let mpv_event = ffi::mpv_wait_event(self.0, timeout);
 
             if mpv_event.is_null() {
-                return Event::None;
+                return Ok(((*mpv_event).reply_userdata, Event::None));
             }
 
-            match (*mpv_event).event_id {
-                ffi::mpv_event_id::SHUTDOWN => Event::Shutdown,
-                ffi::mpv_event_id::LOG_MESSAGE => Event::LogMessage,
-                ffi::mpv_event_id::GET_PROPERTY_REPLY => Event::GetPropertyReply(
+            if (*mpv_event).error != ffi::mpv_error::SUCCESS {
+                return Err(Error::new_with_reply(
+                    (*mpv_event).error,
                     (*mpv_event).reply_userdata,
-                    EventProperty::from_ptr((*mpv_event).data as *mut ffi::mpv_event_property),
-                ),
-                ffi::mpv_event_id::SET_PROPERTY_REPLY => Event::SetPropertyReply,
-                ffi::mpv_event_id::COMMAND_REPLY => Event::CommandReply,
-                ffi::mpv_event_id::START_FILE => Event::StartFile,
-                ffi::mpv_event_id::END_FILE => Event::EndFile,
-                ffi::mpv_event_id::FILE_LOADED => Event::FileLoaded,
-                ffi::mpv_event_id::CLIENT_MESSAGE => Event::ClientMessage,
-                ffi::mpv_event_id::VIDEO_RECONFIG => Event::VideoReconfig,
-                ffi::mpv_event_id::AUDIO_RECONFIG => Event::AudioReconfig,
-                ffi::mpv_event_id::SEEK => Event::Seek,
-                ffi::mpv_event_id::PLAYBACK_RESTART => Event::PlaybackRestart,
-                ffi::mpv_event_id::PROPERTY_CHANGE => Event::PropertyChange(
-                    (*mpv_event).reply_userdata,
-                    EventProperty::from_ptr((*mpv_event).data as *mut ffi::mpv_event_property),
-                ),
-                ffi::mpv_event_id::QUEUE_OVERFLOW => Event::QueueOverflow,
-                ffi::mpv_event_id::HOOK => Event::Hook,
-                _ => Event::None,
+                ));
             }
+
+            Ok((
+                (*mpv_event).reply_userdata,
+                match (*mpv_event).event_id {
+                    ffi::mpv_event_id::SHUTDOWN => Event::Shutdown,
+                    ffi::mpv_event_id::LOG_MESSAGE => Event::LogMessage,
+                    ffi::mpv_event_id::GET_PROPERTY_REPLY => Event::GetPropertyReply(
+                        EventProperty::from_ptr((*mpv_event).data as *mut ffi::mpv_event_property),
+                    ),
+                    ffi::mpv_event_id::SET_PROPERTY_REPLY => Event::SetPropertyReply,
+                    ffi::mpv_event_id::COMMAND_REPLY => Event::CommandReply,
+                    ffi::mpv_event_id::START_FILE => Event::StartFile(EventStartFile::from_ptr(
+                        (*mpv_event).data as *mut ffi::mpv_event_start_file,
+                    )),
+                    ffi::mpv_event_id::END_FILE => Event::EndFile,
+                    ffi::mpv_event_id::FILE_LOADED => Event::FileLoaded,
+                    ffi::mpv_event_id::CLIENT_MESSAGE => Event::ClientMessage,
+                    ffi::mpv_event_id::VIDEO_RECONFIG => Event::VideoReconfig,
+                    ffi::mpv_event_id::AUDIO_RECONFIG => Event::AudioReconfig,
+                    ffi::mpv_event_id::SEEK => Event::Seek,
+                    ffi::mpv_event_id::PLAYBACK_RESTART => Event::PlaybackRestart,
+                    ffi::mpv_event_id::PROPERTY_CHANGE => Event::PropertyChange(
+                        EventProperty::from_ptr((*mpv_event).data as *mut ffi::mpv_event_property),
+                    ),
+                    ffi::mpv_event_id::QUEUE_OVERFLOW => Event::QueueOverflow,
+                    ffi::mpv_event_id::HOOK => Event::Hook,
+                    _ => Event::None,
+                },
+            ))
         }
     }
 
@@ -180,10 +200,21 @@ impl Handle {
     }
 }
 
+impl EventStartFile {
+    fn from_ptr(event: *mut ffi::mpv_event_start_file) -> Self {
+        assert!(!event.is_null());
+        Self(event)
+    }
+
+    pub fn get_playlist_entry_id(&self) -> u64 {
+        unsafe { (*self.0).playlist_entry_id }
+    }
+}
+
 impl EventProperty {
-    fn from_ptr(event_property: *mut ffi::mpv_event_property) -> Self {
-        assert!(!event_property.is_null());
-        Self(event_property)
+    fn from_ptr(event: *mut ffi::mpv_event_property) -> Self {
+        assert!(!event.is_null());
+        Self(event)
     }
 
     pub fn get_data<T: Copy + 'static>(&self) -> Option<T> {

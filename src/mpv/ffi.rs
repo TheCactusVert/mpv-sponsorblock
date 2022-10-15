@@ -82,6 +82,12 @@ pub struct mpv_event {
 
 #[repr(C)]
 #[allow(non_camel_case_types)]
+pub struct mpv_event_start_file {
+    pub playlist_entry_id: c_ulonglong,
+}
+
+#[repr(C)]
+#[allow(non_camel_case_types)]
 pub struct mpv_event_property {
     pub name: *const c_char,
     pub format: mpv_format,

@@ -9,7 +9,7 @@ use crate::events::*;
 use crate::mpv::{Event, Format, Handle, RawHandle};
 use crate::sponsorblock::segment::Segments;
 
-pub const WATCHER_TIME: u64 = 1;
+pub const REPLY_TIME_CHANGE: u64 = 1;
 
 #[no_mangle]
 pub extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
@@ -25,30 +25,33 @@ pub extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
     let config: Config = Config::get();
     let mut segments: Option<Segments> = None;
 
-    if let Err(e) = mpv_handle.observe_property(WATCHER_TIME, "time-pos", Format::DOUBLE) {
+    if let Err(e) = mpv_handle.observe_property(REPLY_TIME_CHANGE, "time-pos", Format::DOUBLE) {
         log::error!("Failed to observe time position property: {}", e);
         return -1;
     }
 
     loop {
         match mpv_handle.wait_event(-1.0) {
-            Event::Shutdown => {
+            Ok((_, Event::Shutdown)) => {
                 return 0;
             }
-            Event::StartFile => {
+            Ok((_, Event::StartFile(_mpv_event))) => {
                 segments = start_file::event(&mpv_handle, &config);
             }
-            Event::EndFile => {
+            Ok((_, Event::EndFile)) => {
                 segments = None;
             }
-            Event::PropertyChange(mpv_reply, mpv_event) => {
-                property_change::event(&mpv_handle, mpv_reply, mpv_event, &segments);
+            Ok((REPLY_TIME_CHANGE, Event::PropertyChange(mpv_event))) => {
+                property_change::event_time_change(&mpv_handle, mpv_event, &segments);
             }
-            Event::None => {
+            Ok((_, Event::None)) => {
                 // Do nothing
             }
-            event => {
-                log::trace!("Ignoring event named: {}", event)
+            Ok((reply, event)) => {
+                log::trace!("Ignoring event named: {} (reply {})", event, reply)
+            }
+            Err(e) => {
+                log::error!("Asynchronous call failed: {}", e)
             }
         }
     }
