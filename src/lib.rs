@@ -18,7 +18,7 @@ pub extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
     let mpv_handle = Handle::from_ptr(handle);
 
     log::debug!(
-        "Starting plugin SponsorBlock ({})!",
+        "Starting plugin SponsorBlock [{}]!",
         mpv_handle.client_name()
     );
 
@@ -35,7 +35,7 @@ pub extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
     }
 
     loop {
-        // Wait for MPV event indefinitely
+        // Wait for MPV events indefinitely
         match mpv_handle.wait_event(-1.0) {
             Ok((_, Event::Shutdown)) => return 0,
             Ok((_, Event::StartFile(_mpv_event))) => actions.load_segments(&mpv_handle, &config),
