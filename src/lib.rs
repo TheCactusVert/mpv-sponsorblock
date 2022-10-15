@@ -37,27 +37,14 @@ pub extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
     loop {
         // Wait for MPV event indefinitely
         match mpv_handle.wait_event(-1.0) {
-            Ok((_, Event::Shutdown)) => {
-                return 0;
-            }
-            Ok((_, Event::StartFile(_mpv_event))) => {
-                actions.load_segments(&mpv_handle, &config);
-            }
-            Ok((_, Event::EndFile)) => {
-                actions.drop_segments();
-            }
+            Ok((_, Event::Shutdown)) => return 0,
+            Ok((_, Event::StartFile(_mpv_event))) => actions.load_segments(&mpv_handle, &config),
+            Ok((_, Event::EndFile)) => actions.drop_segments(),
             Ok((REPLY_TIME_CHANGE, Event::PropertyChange(mpv_event))) => {
-                actions.skip_segments(&mpv_handle, mpv_event);
+                actions.skip_segments(&mpv_handle, mpv_event)
             }
-            Ok((_, Event::None)) => {
-                // Do nothing
-            }
-            Ok((reply, event)) => {
-                log::trace!("Ignoring {} event for reply {}", event, reply)
-            }
-            Err(e) => {
-                log::error!("Asynchronous call failed: {}", e)
-            }
+            Ok((reply, event)) => log::trace!("Ignoring {} event for reply {}", event, reply),
+            Err(e) => log::error!("Asynchronous call failed: {}", e),
         }
     }
 }
