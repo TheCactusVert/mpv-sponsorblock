@@ -17,7 +17,7 @@ pub extern "C" fn mpv_open_cplugin(handle: MpvRawHandle) -> std::os::raw::c_int 
 
     let mpv_handle = MpvHandle::from_ptr(handle);
 
-    log::info!(
+    log::debug!(
         "Starting plugin SponsorBlock ({})!",
         mpv_handle.client_name().unwrap_or("Unknown".to_string())
     );

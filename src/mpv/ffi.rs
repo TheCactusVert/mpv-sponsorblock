@@ -49,6 +49,7 @@ pub enum mpv_format {
 #[allow(non_camel_case_types)]
 #[derive(Copy, Clone, PartialEq)]
 pub enum mpv_event_id {
+    NONE = 0,
     SHUTDOWN = 1,
     LOG_MESSAGE = 2,
     GET_PROPERTY_REPLY = 3,
