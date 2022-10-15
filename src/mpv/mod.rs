@@ -1,6 +1,8 @@
 mod ffi;
 
+use std::any::TypeId;
 use std::ffi::{c_void, CStr, CString};
+use std::fmt;
 
 use anyhow::{anyhow, Result};
 
@@ -13,9 +15,25 @@ pub struct MpvEventProperty(*mut ffi::mpv_event_property);
 pub enum MpvEventID {
     None,
     Shutdown,
+    LogMessage, // TODO Custon event
     StartFile,
     EndFile,
+    FileLoaded,
     PropertyChange(MpvReplyUser, MpvEventProperty),
+}
+
+impl fmt::Display for MpvEventID {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Self::None => write!(f, "none"),
+            Self::Shutdown => write!(f, "shutdown"),
+            Self::LogMessage => write!(f, "log message"),
+            Self::StartFile => write!(f, "start file"),
+            Self::EndFile => write!(f, "end file"),
+            Self::FileLoaded => write!(f, "file loaded"),
+            Self::PropertyChange(_, _) => write!(f, "property change"),
+        }
+    }
 }
 
 impl MpvHandle {
@@ -34,8 +52,10 @@ impl MpvHandle {
 
             match (*mpv_event).event_id {
                 ffi::mpv_event_id::SHUTDOWN => MpvEventID::Shutdown,
+                ffi::mpv_event_id::LOG_MESSAGE => MpvEventID::LogMessage,
                 ffi::mpv_event_id::START_FILE => MpvEventID::StartFile,
                 ffi::mpv_event_id::END_FILE => MpvEventID::EndFile,
+                ffi::mpv_event_id::FILE_LOADED => MpvEventID::FileLoaded,
                 ffi::mpv_event_id::PROPERTY_CHANGE => MpvEventID::PropertyChange(
                     (*mpv_event).reply_userdata,
                     MpvEventProperty::from_ptr((*mpv_event).data as *mut ffi::mpv_event_property),
@@ -109,17 +129,32 @@ impl MpvHandle {
 
 impl MpvEventProperty {
     fn from_ptr(event_property: *mut ffi::mpv_event_property) -> Self {
-        assert!(!event_property.is_null());
+        assert!(!event_property.is_null()); // TODO dangerous
         Self(event_property)
     }
 
-    pub fn get_data<T: Copy>(&self) -> Option<T> {
+    pub fn get_data<T: Copy + 'static>(&self) -> Option<T> {
         unsafe {
-            let data = (*self.0).data as *mut T;
-            if data.is_null() {
-                None
+            let format = (*self.0).format;
+            if format == ffi::mpv_format::NONE {
+                return None;
+            }
+
+            let type_id = TypeId::of::<T>();
+            if type_id == TypeId::of::<i64>() {
+                assert!(
+                    format == ffi::mpv_format::INT64,
+                    "The format is not of type i64!"
+                );
+                Some(*((*self.0).data as *mut T))
+            } else if type_id == TypeId::of::<f64>() {
+                assert!(
+                    format == ffi::mpv_format::DOUBLE,
+                    "The format is not of type f64!"
+                );
+                Some(*((*self.0).data as *mut T))
             } else {
-                Some(*data)
+                panic!("Unsupported format!");
             }
         }
     }

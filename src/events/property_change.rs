@@ -29,7 +29,7 @@ fn event_time_change(
 
         if old_time_pos != new_time_pos {
             if let Err(e) = mpv_handle.set_property("time-pos", MpvFormat::DOUBLE, new_time_pos) {
-                log::error!("MPV error: {}", e);
+                log::error!("Failed to set time position property: {}", e);
             }
         }
     }

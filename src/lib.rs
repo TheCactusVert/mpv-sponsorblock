@@ -26,7 +26,7 @@ pub extern "C" fn mpv_open_cplugin(handle: MpvRawHandle) -> std::os::raw::c_int 
     let mut segments: Option<Segments> = None;
 
     if let Err(e) = mpv_handle.observe_property(WATCHER_TIME, "time-pos", MpvFormat::DOUBLE) {
-        log::error!("{}", e);
+        log::error!("Failed to observe time position property: {}", e);
         return -1;
     }
 
@@ -47,8 +47,8 @@ pub extern "C" fn mpv_open_cplugin(handle: MpvRawHandle) -> std::os::raw::c_int 
             MpvEventID::None => {
                 // Do nothing
             }
-            _ => {
-                log::debug!("Unhandled event")
+            event => {
+                log::trace!("Ignoring event named: {}", event)
             }
         }
     }
