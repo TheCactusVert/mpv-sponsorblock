@@ -4,8 +4,6 @@ use crate::sponsorblock::segment::{Segment, Segments};
 use crate::utils::get_youtube_id;
 
 pub fn event(mpv_handle: &MpvHandle, config: &Config) -> Option<Segments> {
-    log::debug!("File started.");
-
     let path = mpv_handle.get_property_string("path").ok()?;
     let yt_id = get_youtube_id(&path);
 

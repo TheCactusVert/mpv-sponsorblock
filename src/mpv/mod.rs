@@ -4,13 +4,19 @@ use std::ffi::{c_void, CStr, CString};
 
 use anyhow::{anyhow, Result};
 
-pub type MpvError = ffi::mpv_error;
 pub type MpvFormat = ffi::mpv_format;
-pub type MpvEventID = ffi::mpv_event_id;
 pub type MpvRawHandle = *mut ffi::mpv_handle;
+pub type MpvReplyUser = u64;
 pub struct MpvHandle(*mut ffi::mpv_handle);
-pub struct MpvEvent(*mut ffi::mpv_event);
 pub struct MpvEventProperty(*mut ffi::mpv_event_property);
+
+pub enum MpvEventID {
+    None,
+    Shutdown,
+    StartFile,
+    EndFile,
+    PropertyChange(MpvReplyUser, MpvEventProperty),
+}
 
 impl MpvHandle {
     pub fn from_ptr(handle: MpvRawHandle) -> Self {
@@ -18,8 +24,25 @@ impl MpvHandle {
         Self(handle)
     }
 
-    pub fn wait_event(&self, timeout: f64) -> MpvEvent {
-        MpvEvent::from_ptr(unsafe { ffi::mpv_wait_event(self.0, timeout) })
+    pub fn wait_event(&self, timeout: f64) -> MpvEventID {
+        unsafe {
+            let mpv_event = ffi::mpv_wait_event(self.0, timeout);
+
+            if mpv_event.is_null() {
+                return MpvEventID::None;
+            }
+
+            match (*mpv_event).event_id {
+                ffi::mpv_event_id::SHUTDOWN => MpvEventID::Shutdown,
+                ffi::mpv_event_id::START_FILE => MpvEventID::StartFile,
+                ffi::mpv_event_id::END_FILE => MpvEventID::EndFile,
+                ffi::mpv_event_id::PROPERTY_CHANGE => MpvEventID::PropertyChange(
+                    (*mpv_event).reply_userdata,
+                    MpvEventProperty::from_ptr((*mpv_event).data as *mut ffi::mpv_event_property),
+                ),
+                _ => MpvEventID::None,
+            }
+        }
     }
 
     pub fn client_name(&self) -> Result<String> {
@@ -57,7 +80,7 @@ impl MpvHandle {
         unsafe {
             let data: *mut c_void = &mut data as *mut _ as *mut c_void;
             match ffi::mpv_set_property(self.0, c_name.as_ptr(), format, data) {
-                MpvError::SUCCESS => Ok(()),
+                ffi::mpv_error::SUCCESS => Ok(()),
                 e => Err(anyhow!(CStr::from_ptr(ffi::mpv_error_string(e))
                     .to_str()
                     .unwrap())),
@@ -75,31 +98,12 @@ impl MpvHandle {
 
         unsafe {
             match ffi::mpv_observe_property(self.0, reply_userdata, c_name.as_ptr(), format) {
-                MpvError::SUCCESS => Ok(()),
+                ffi::mpv_error::SUCCESS => Ok(()),
                 e => Err(anyhow!(CStr::from_ptr(ffi::mpv_error_string(e))
                     .to_str()
                     .unwrap())),
             }
         }
-    }
-}
-
-impl MpvEvent {
-    fn from_ptr(event: *mut ffi::mpv_event) -> Self {
-        assert!(!event.is_null());
-        Self(event)
-    }
-
-    pub fn get_event_id(&self) -> MpvEventID {
-        unsafe { (*self.0).event_id }
-    }
-
-    pub fn get_reply_userdata(&self) -> u64 {
-        unsafe { (*self.0).reply_userdata }
-    }
-
-    pub fn get_event_property(&self) -> MpvEventProperty {
-        MpvEventProperty::from_ptr(unsafe { (*self.0).data as *mut ffi::mpv_event_property })
     }
 }
 

@@ -1,4 +1,4 @@
-use std::ffi::{c_char, c_double, c_int, c_ulonglong, c_void};
+use std::ffi::{c_char, c_double, c_ulonglong, c_void};
 
 #[repr(i32)]
 #[allow(dead_code)]
@@ -74,7 +74,7 @@ pub type mpv_handle = c_void;
 #[allow(non_camel_case_types)]
 pub struct mpv_event {
     pub event_id: mpv_event_id,
-    pub error: c_int,
+    pub error: mpv_error,
     pub reply_userdata: c_ulonglong,
     pub data: *mut c_void,
 }

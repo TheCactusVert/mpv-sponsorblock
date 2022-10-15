@@ -31,17 +31,25 @@ pub extern "C" fn mpv_open_cplugin(handle: MpvRawHandle) -> std::os::raw::c_int 
     }
 
     loop {
-        let mpv_event = mpv_handle.wait_event(-1.0);
-        let mpv_event_id = mpv_event.get_event_id();
-
-        if mpv_event_id == MpvEventID::SHUTDOWN {
-            return 0;
-        } else if mpv_event_id == MpvEventID::START_FILE {
-            segments = start_file::event(&mpv_handle, &config);
-        } else if mpv_event_id == MpvEventID::END_FILE {
-            segments = None;
-        } else if mpv_event_id == MpvEventID::PROPERTY_CHANGE {
-            property_change::event(&mpv_handle, mpv_event, &segments);
+        match mpv_handle.wait_event(-1.0) {
+            MpvEventID::Shutdown => {
+                return 0;
+            }
+            MpvEventID::StartFile => {
+                segments = start_file::event(&mpv_handle, &config);
+            }
+            MpvEventID::EndFile => {
+                segments = None;
+            }
+            MpvEventID::PropertyChange(mpv_reply, mpv_event) => {
+                property_change::event(&mpv_handle, mpv_reply, mpv_event, &segments);
+            }
+            MpvEventID::None => {
+                // Do nothing
+            }
+            _ => {
+                log::debug!("Unhandled event")
+            }
         }
     }
 }
