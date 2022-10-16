@@ -7,15 +7,9 @@ use serde_derive::Deserialize;
 pub struct Config {
     #[serde(default = "Config::default_server_address")]
     pub server_address: String,
-    #[serde(
-        default = "HashSet::default",
-        deserialize_with = "Config::deserialize_categories"
-    )]
+    #[serde(default = "HashSet::default", deserialize_with = "Config::deserialize_categories")]
     categories: HashSet<String>,
-    #[serde(
-        default = "HashSet::default",
-        deserialize_with = "Config::deserialize_action_types"
-    )]
+    #[serde(default = "HashSet::default", deserialize_with = "Config::deserialize_action_types")]
     action_types: HashSet<String>,
     #[serde(default = "bool::default")]
     pub privacy_api: bool,
@@ -28,10 +22,7 @@ impl Config {
     {
         let regex = Regex::new(r"^sponsor|selfpromo|interaction|poi_highlight|intro|outro|preview|music_offtopic|filler|exclusive_access+$").unwrap();
         let categories: HashSet<String> = serde::Deserialize::deserialize(deserializer)?;
-        Ok(categories
-            .into_iter()
-            .filter(|v| regex.is_match(v))
-            .collect())
+        Ok(categories.into_iter().filter(|v| regex.is_match(v)).collect())
     }
 
     fn deserialize_action_types<'de, D>(deserializer: D) -> Result<HashSet<String>, D::Error>
@@ -40,10 +31,7 @@ impl Config {
     {
         let regex = Regex::new(r"^skip|mute|poi|full+$").unwrap();
         let categories: HashSet<String> = serde::Deserialize::deserialize(deserializer)?;
-        Ok(categories
-            .into_iter()
-            .filter(|v| regex.is_match(v))
-            .collect())
+        Ok(categories.into_iter().filter(|v| regex.is_match(v)).collect())
     }
 
     fn default_server_address() -> String {
@@ -61,16 +49,9 @@ impl Config {
 
     pub fn parameters(&self) -> String {
         let categories = self.categories.iter().map(|v| format!("category={}", v));
+        let action_types = self.action_types.iter().map(|v| format!("actionType={}", v));
 
-        let action_types = self
-            .action_types
-            .iter()
-            .map(|v| format!("actionType={}", v));
-
-        categories
-            .chain(action_types)
-            .collect::<Vec<String>>()
-            .join("&")
+        categories.chain(action_types).collect::<Vec<String>>().join("&")
     }
 }
 

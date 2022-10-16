@@ -25,10 +25,7 @@ impl Actions {
         let path = match mpv_handle.get_property_string("path") {
             Ok(p) => p,
             Err(e) => {
-                log::error!(
-                    "Failed to get path property: {}. Segments can't be loaded.",
-                    e
-                );
+                log::error!("Failed to get path property: {}. Segments can't be loaded.", e);
                 return;
             }
         };

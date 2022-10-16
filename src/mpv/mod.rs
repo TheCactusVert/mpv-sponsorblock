@@ -124,9 +124,9 @@ impl Handle {
                 Ok(match (*mpv_event).event_id {
                     ffi::mpv_event_id::SHUTDOWN => Event::Shutdown,
                     ffi::mpv_event_id::LOG_MESSAGE => Event::LogMessage,
-                    ffi::mpv_event_id::GET_PROPERTY_REPLY => Event::GetPropertyReply(
-                        EventProperty::from_ptr((*mpv_event).data as *mut ffi::mpv_event_property),
-                    ),
+                    ffi::mpv_event_id::GET_PROPERTY_REPLY => Event::GetPropertyReply(EventProperty::from_ptr(
+                        (*mpv_event).data as *mut ffi::mpv_event_property,
+                    )),
                     ffi::mpv_event_id::SET_PROPERTY_REPLY => Event::SetPropertyReply,
                     ffi::mpv_event_id::COMMAND_REPLY => Event::CommandReply,
                     ffi::mpv_event_id::START_FILE => Event::StartFile(EventStartFile::from_ptr(
@@ -139,9 +139,9 @@ impl Handle {
                     ffi::mpv_event_id::AUDIO_RECONFIG => Event::AudioReconfig,
                     ffi::mpv_event_id::SEEK => Event::Seek,
                     ffi::mpv_event_id::PLAYBACK_RESTART => Event::PlaybackRestart,
-                    ffi::mpv_event_id::PROPERTY_CHANGE => Event::PropertyChange(
-                        EventProperty::from_ptr((*mpv_event).data as *mut ffi::mpv_event_property),
-                    ),
+                    ffi::mpv_event_id::PROPERTY_CHANGE => Event::PropertyChange(EventProperty::from_ptr(
+                        (*mpv_event).data as *mut ffi::mpv_event_property,
+                    )),
                     ffi::mpv_event_id::QUEUE_OVERFLOW => Event::QueueOverflow,
                     ffi::mpv_event_id::HOOK => Event::Hook,
                     _ => Event::None,
@@ -174,12 +174,7 @@ impl Handle {
         }
     }
 
-    pub fn set_property<S: Into<String>, T>(
-        &self,
-        name: S,
-        format: Format,
-        mut data: T,
-    ) -> Result<()> {
+    pub fn set_property<S: Into<String>, T>(&self, name: S, format: Format, mut data: T) -> Result<()> {
         let c_name = CString::new(name.into())?;
 
         unsafe {
@@ -191,12 +186,7 @@ impl Handle {
         }
     }
 
-    pub fn observe_property<S: Into<String>>(
-        &self,
-        reply_userdata: u64,
-        name: S,
-        format: Format,
-    ) -> Result<()> {
+    pub fn observe_property<S: Into<String>>(&self, reply_userdata: ReplyUser, name: S, format: Format) -> Result<()> {
         let c_name = CString::new(name.into())?;
 
         unsafe {
@@ -234,16 +224,10 @@ impl EventProperty {
 
             let type_id = TypeId::of::<T>();
             if type_id == TypeId::of::<i64>() {
-                assert!(
-                    format == ffi::mpv_format::INT64,
-                    "The format is not of type i64!"
-                );
+                assert!(format == ffi::mpv_format::INT64, "The format is not of type i64!");
                 Some(*((*self.0).data as *mut T))
             } else if type_id == TypeId::of::<f64>() {
-                assert!(
-                    format == ffi::mpv_format::DOUBLE,
-                    "The format is not of type f64!"
-                );
+                assert!(format == ffi::mpv_format::DOUBLE, "The format is not of type f64!");
                 Some(*((*self.0).data as *mut T))
             } else {
                 panic!("Unsupported format!");

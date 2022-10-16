@@ -67,9 +67,6 @@ mod tests {
             get_youtube_id("https://piped.kavin.rocks/watch?v=dQw4w9WgXcQ"),
             Some("dQw4w9WgXcQ".to_string())
         );
-        assert_eq!(
-            get_youtube_id("file:///home/me/videos/some_video_file.mkv"),
-            None
-        );
+        assert_eq!(get_youtube_id("file:///home/me/videos/some_video_file.mkv"), None);
     }
 }

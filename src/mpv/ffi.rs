@@ -106,11 +106,7 @@ extern "C" {
         format: mpv_format,
         data: *mut c_void,
     ) -> mpv_error;
-    pub fn mpv_set_property_string(
-        ctx: *mut mpv_handle,
-        name: *const c_char,
-        data: *mut c_void,
-    ) -> mpv_error;
+    pub fn mpv_set_property_string(ctx: *mut mpv_handle, name: *const c_char, data: *mut c_void) -> mpv_error;
     pub fn mpv_get_property_string(ctx: *mut mpv_handle, name: *const c_char) -> *mut c_char;
     pub fn mpv_observe_property(
         ctx: *mut mpv_handle,
