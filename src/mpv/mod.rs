@@ -11,6 +11,7 @@ pub type ReplyUser = u64;
 pub struct Handle(*mut ffi::mpv_handle);
 pub struct EventStartFile(*mut ffi::mpv_event_start_file);
 pub struct EventProperty(*mut ffi::mpv_event_property);
+pub struct EventHook(*mut ffi::mpv_event_hook);
 
 #[derive(Debug)]
 pub struct Error(ffi::mpv_error);
@@ -72,7 +73,7 @@ pub enum Event {
     PlaybackRestart,
     PropertyChange(EventProperty),
     QueueOverflow,
-    Hook, // TODO mpv_event_hook
+    Hook(EventHook),
 }
 
 impl fmt::Display for Event {
@@ -94,7 +95,7 @@ impl fmt::Display for Event {
             Self::PlaybackRestart => write!(f, "playback restart"),
             Self::PropertyChange(_) => write!(f, "property change"),
             Self::QueueOverflow => write!(f, "queue overflow"),
-            Self::Hook => write!(f, "hook"),
+            Self::Hook(_) => write!(f, "hook"),
         }
     }
 }
@@ -143,7 +144,9 @@ impl Handle {
                         (*mpv_event).data as *mut ffi::mpv_event_property,
                     )),
                     ffi::mpv_event_id::QUEUE_OVERFLOW => Event::QueueOverflow,
-                    ffi::mpv_event_id::HOOK => Event::Hook,
+                    ffi::mpv_event_id::HOOK => {
+                        Event::Hook(EventHook::from_ptr((*mpv_event).data as *mut ffi::mpv_event_hook))
+                    }
                     _ => Event::None,
                 }),
             )
@@ -196,6 +199,26 @@ impl Handle {
             }
         }
     }
+
+    pub fn hook_add<S: Into<String>>(&self, reply_userdata: ReplyUser, name: S, priority: i32) -> Result<()> {
+        let c_name = CString::new(name.into())?;
+
+        unsafe {
+            match ffi::mpv_hook_add(self.0, reply_userdata, c_name.as_ptr(), priority) {
+                ffi::mpv_error::SUCCESS => Ok(()),
+                e => Err(Error::new(e)),
+            }
+        }
+    }
+
+    pub fn hook_continue(&self, id: u64) -> Result<()> {
+        unsafe {
+            match ffi::mpv_hook_continue(self.0, id) {
+                ffi::mpv_error::SUCCESS => Ok(()),
+                e => Err(Error::new(e)),
+            }
+        }
+    }
 }
 
 impl EventStartFile {
@@ -233,5 +256,16 @@ impl EventProperty {
                 panic!("Unsupported format!");
             }
         }
+    }
+}
+
+impl EventHook {
+    fn from_ptr(event: *mut ffi::mpv_event_hook) -> Self {
+        assert!(!event.is_null());
+        Self(event)
+    }
+
+    pub fn get_id(&self) -> u64 {
+        unsafe { (*self.0).id }
     }
 }

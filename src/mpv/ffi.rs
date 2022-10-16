@@ -1,4 +1,4 @@
-use std::ffi::{c_char, c_double, c_ulonglong, c_void};
+use std::ffi::{c_char, c_double, c_int, c_ulonglong, c_void};
 
 #[repr(i32)]
 #[allow(dead_code)]
@@ -73,15 +73,6 @@ pub type mpv_handle = c_void;
 
 #[repr(C)]
 #[allow(non_camel_case_types)]
-pub struct mpv_event {
-    pub event_id: mpv_event_id,
-    pub error: mpv_error,
-    pub reply_userdata: c_ulonglong,
-    pub data: *mut c_void,
-}
-
-#[repr(C)]
-#[allow(non_camel_case_types)]
 pub struct mpv_event_start_file {
     pub playlist_entry_id: c_ulonglong,
 }
@@ -91,6 +82,22 @@ pub struct mpv_event_start_file {
 pub struct mpv_event_property {
     pub name: *const c_char,
     pub format: mpv_format,
+    pub data: *mut c_void,
+}
+
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub struct mpv_event_hook {
+    pub name: *const c_char,
+    pub id: c_ulonglong,
+}
+
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub struct mpv_event {
+    pub event_id: mpv_event_id,
+    pub error: mpv_error,
+    pub reply_userdata: c_ulonglong,
     pub data: *mut c_void,
 }
 
@@ -115,4 +122,11 @@ extern "C" {
         format: mpv_format,
     ) -> mpv_error;
     pub fn mpv_wait_event(ctx: *mut mpv_handle, timeout: c_double) -> *mut mpv_event;
+    pub fn mpv_hook_add(
+        ctx: *mut mpv_handle,
+        reply_userdata: c_ulonglong,
+        name: *const c_char,
+        priority: c_int,
+    ) -> mpv_error;
+    pub fn mpv_hook_continue(ctx: *mut mpv_handle, id: c_ulonglong) -> mpv_error;
 }
