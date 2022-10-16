@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::mpv::{EventProperty, Format, Handle};
-use crate::sponsorblock::segment::{Segment, Segments};
+use crate::sponsorblock::segment::{self, Segments};
 use crate::utils::get_youtube_id;
 
 macro_rules! unwrap_or_return {
@@ -31,8 +31,7 @@ impl Actions {
         };
 
         self.segments = match get_youtube_id(&path) {
-            Some(id) if config.privacy_api => Segment::get_segments_with_privacy(config, id),
-            Some(id) => Segment::get_segments(config, id),
+            Some(id) => segment::get_segments(config, id),
             None => None,
         };
     }

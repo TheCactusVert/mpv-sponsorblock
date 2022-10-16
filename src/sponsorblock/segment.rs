@@ -1,10 +1,12 @@
 use crate::config::Config;
 use crate::utils::get_data;
 
+use cached::proc_macro::cached;
+use cached::SizedCache;
 use serde_derive::Deserialize;
 use sha2::{Digest, Sha256};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Segment {
     pub category: String,
@@ -34,7 +36,7 @@ struct Video {
 type Videos = Vec<Video>;
 
 impl Segment {
-    pub fn get_segments(config: &Config, id: String) -> Option<Segments> {
+    fn get(config: &Config, id: String) -> Option<Segments> {
         log::info!("Getting segments for video {}.", id);
 
         let buf = get_data(&format!(
@@ -53,7 +55,7 @@ impl Segment {
         serde_json::from_slice(&buf).ok()
     }
 
-    pub fn get_segments_with_privacy(config: &Config, id: String) -> Option<Segments> {
+    pub fn get_with_privacy(config: &Config, id: String) -> Option<Segments> {
         log::info!("Getting segments for video {} with extra privacy.", id);
 
         let mut hasher = Sha256::new(); // create a Sha256 object
@@ -75,5 +77,19 @@ impl Segment {
         // Parse the string of data into Videos.
         let videos: Videos = serde_json::from_slice(&buf).ok()?;
         Some(videos.into_iter().find(|v| v.video_id == id)?.segments)
+    }
+}
+
+#[cached(
+    type = "SizedCache<String, Segments>",
+    create = "{ SizedCache::with_size(10) }",
+    convert = r#"{ id.clone() }"#,
+    option = true
+)]
+pub fn get_segments(config: &Config, id: String) -> Option<Segments> {
+    if config.privacy_api {
+        Segment::get_with_privacy(config, id)
+    } else {
+        Segment::get(config, id)
     }
 }
