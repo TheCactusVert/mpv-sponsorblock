@@ -12,12 +12,14 @@ const REPLY_TIME: ReplyUser = 1;
 
 // MPV entry point
 #[no_mangle]
-pub extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
+extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
+    // TODO Maybe use MPV logger ?
     env_logger::init();
 
     // Wrap handle
     let mpv_handle = Handle::from_ptr(handle);
 
+    // Show that the plugin has started
     log::debug!("Starting plugin SponsorBlock [{}]!", mpv_handle.client_name());
 
     // Load config file
