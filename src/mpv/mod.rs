@@ -1,8 +1,9 @@
 mod ffi;
 
 use std::any::TypeId;
-use std::ffi::{c_void, CStr, CString};
+use std::ffi::{c_void, CStr, CString, NulError};
 use std::fmt;
+use std::str::Utf8Error;
 
 pub type Format = ffi::mpv_format;
 pub type RawHandle = *mut ffi::mpv_handle;
@@ -12,22 +13,34 @@ pub struct EventStartFile(*mut ffi::mpv_event_start_file);
 pub struct EventProperty(*mut ffi::mpv_event_property);
 
 #[derive(Debug)]
-pub struct Error(ffi::mpv_error, Option<ReplyUser>);
+pub struct Error(ffi::mpv_error);
 pub type Result<T> = std::result::Result<T, Error>;
 
 impl Error {
     fn new(error: ffi::mpv_error) -> Self {
-        Self(error, None)
-    }
-
-    fn new_with_reply(error: ffi::mpv_error, reply: ReplyUser) -> Self {
-        Self(error, Some(reply))
+        Self(error)
     }
 }
 
-impl From<std::str::Utf8Error> for Error {
-    fn from(_: std::str::Utf8Error) -> Self {
+impl From<NulError> for Error {
+    fn from(_: NulError) -> Self {
         Self::new(ffi::mpv_error::GENERIC)
+    }
+}
+
+impl From<Utf8Error> for Error {
+    fn from(_: Utf8Error) -> Self {
+        Self::new(ffi::mpv_error::GENERIC)
+    }
+}
+
+impl std::error::Error for Error {
+    fn description(&self) -> &str {
+        unsafe {
+            CStr::from_ptr(ffi::mpv_error_string(self.0))
+                .to_str()
+                .unwrap_or("unknow error")
+        }
     }
 }
 
@@ -38,12 +51,7 @@ impl fmt::Display for Error {
                 .to_str()
                 .unwrap_or("unknow error")
         };
-        write!(f, "{}", e_str)?;
-        if let Some(reply) = self.1 {
-            write!(f, " on reply {}", reply)?;
-        }
-
-        Ok(())
+        write!(f, "{}", e_str)
     }
 }
 
@@ -97,24 +105,23 @@ impl Handle {
         Self(handle)
     }
 
-    pub fn wait_event(&self, timeout: f64) -> Result<(ReplyUser, Event)> {
+    pub fn wait_event(&self, timeout: f64) -> (ReplyUser, Result<Event>) {
         unsafe {
             let mpv_event = ffi::mpv_wait_event(self.0, timeout);
 
             if mpv_event.is_null() {
-                return Ok(((*mpv_event).reply_userdata, Event::None));
+                return (0, Ok(Event::None));
             }
+
+            let mpv_reply: ReplyUser = (*mpv_event).reply_userdata;
 
             if (*mpv_event).error != ffi::mpv_error::SUCCESS {
-                return Err(Error::new_with_reply(
-                    (*mpv_event).error,
-                    (*mpv_event).reply_userdata,
-                ));
+                return (mpv_reply, Err(Error::new((*mpv_event).error)));
             }
 
-            Ok((
-                (*mpv_event).reply_userdata,
-                match (*mpv_event).event_id {
+            (
+                mpv_reply,
+                Ok(match (*mpv_event).event_id {
                     ffi::mpv_event_id::SHUTDOWN => Event::Shutdown,
                     ffi::mpv_event_id::LOG_MESSAGE => Event::LogMessage,
                     ffi::mpv_event_id::GET_PROPERTY_REPLY => Event::GetPropertyReply(
@@ -138,8 +145,8 @@ impl Handle {
                     ffi::mpv_event_id::QUEUE_OVERFLOW => Event::QueueOverflow,
                     ffi::mpv_event_id::HOOK => Event::Hook,
                     _ => Event::None,
-                },
-            ))
+                }),
+            )
         }
     }
 
@@ -153,7 +160,7 @@ impl Handle {
     }
 
     pub fn get_property_string<S: Into<String>>(&self, name: S) -> Result<String> {
-        let c_name = CString::new(name.into()).expect("CString::new failed");
+        let c_name = CString::new(name.into())?;
 
         unsafe {
             let c_path = ffi::mpv_get_property_string(self.0, c_name.as_ptr());
@@ -173,7 +180,7 @@ impl Handle {
         format: Format,
         mut data: T,
     ) -> Result<()> {
-        let c_name = CString::new(name.into()).expect("CString::new failed");
+        let c_name = CString::new(name.into())?;
 
         unsafe {
             let data: *mut c_void = &mut data as *mut _ as *mut c_void;
@@ -190,7 +197,7 @@ impl Handle {
         name: S,
         format: Format,
     ) -> Result<()> {
-        let c_name = CString::new(name.into()).expect("CString::new failed");
+        let c_name = CString::new(name.into())?;
 
         unsafe {
             match ffi::mpv_observe_property(self.0, reply_userdata, c_name.as_ptr(), format) {

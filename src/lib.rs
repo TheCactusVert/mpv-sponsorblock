@@ -15,6 +15,7 @@ const REPLY_TIME_CHANGE: u64 = 1;
 pub extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
     env_logger::init();
 
+    // Wrap handle
     let mpv_handle = Handle::from_ptr(handle);
 
     log::debug!(
@@ -30,21 +31,21 @@ pub extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
 
     // Subscribe to property time-pos
     if let Err(e) = mpv_handle.observe_property(REPLY_TIME_CHANGE, "time-pos", Format::DOUBLE) {
-        log::error!("Failed to observe time position property: {}", e);
+        log::error!("Failed to observe time position property: {}.", e);
         return -1;
     }
 
     loop {
         // Wait for MPV events indefinitely
         match mpv_handle.wait_event(-1.0) {
-            Ok((_, Event::Shutdown)) => return 0,
-            Ok((_, Event::StartFile(_mpv_event))) => actions.load_segments(&mpv_handle, &config),
-            Ok((_, Event::EndFile)) => actions.drop_segments(),
-            Ok((REPLY_TIME_CHANGE, Event::PropertyChange(mpv_event))) => {
+            (_, Ok(Event::Shutdown)) => return 0,
+            (_, Ok(Event::StartFile(_mpv_event))) => actions.load_segments(&mpv_handle, &config),
+            (_, Ok(Event::EndFile)) => actions.drop_segments(),
+            (REPLY_TIME_CHANGE, Ok(Event::PropertyChange(mpv_event))) => {
                 actions.skip_segments(&mpv_handle, mpv_event)
             }
-            Ok((reply, event)) => log::trace!("Ignoring {} event for reply {}", event, reply),
-            Err(e) => log::error!("Asynchronous call failed: {}", e),
+            (reply, Ok(event)) => log::trace!("Ignoring {} event on reply {}.", event, reply),
+            (reply, Err(e)) => log::error!("Asynchronous call failed: {} on reply {}.", e, reply),
         }
     }
 }

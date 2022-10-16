@@ -44,7 +44,7 @@ impl Segment {
             config.parameters(),
         ))
         .map_err(|e| {
-            log::error!("Failed to get SponsorBlock data: {}", e.to_string());
+            log::error!("Failed to get SponsorBlock data: {}.", e.to_string());
             e
         })
         .ok()?;
@@ -67,7 +67,7 @@ impl Segment {
             config.parameters(),
         ))
         .map_err(|e| {
-            log::error!("Failed to get SponsorBlock data: {}", e.to_string());
+            log::error!("Failed to get SponsorBlock data: {}.", e.to_string());
             e
         })
         .ok()?;

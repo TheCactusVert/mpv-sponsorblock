@@ -22,7 +22,16 @@ impl Actions {
     }
 
     pub fn load_segments(&mut self, mpv_handle: &Handle, config: &Config) {
-        let path = mpv_handle.get_property_string("path").unwrap();
+        let path = match mpv_handle.get_property_string("path") {
+            Ok(p) => p,
+            Err(e) => {
+                log::error!(
+                    "Failed to get path property: {}. Segments can't be loaded.",
+                    e
+                );
+                return;
+            }
+        };
 
         self.segments = match get_youtube_id(&path) {
             Some(id) if config.privacy_api => Segment::get_segments_with_privacy(config, id),
@@ -56,7 +65,7 @@ impl Actions {
 
         if old_time_pos != new_time_pos {
             if let Err(e) = mpv_handle.set_property("time-pos", Format::DOUBLE, new_time_pos) {
-                log::error!("Failed to set time position property: {}", e);
+                log::error!("Failed to set time position property: {}.", e);
             }
         }
     }
