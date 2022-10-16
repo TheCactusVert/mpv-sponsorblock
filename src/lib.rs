@@ -8,6 +8,8 @@ use crate::actions::Actions;
 use crate::config::Config;
 use crate::mpv::{Event, Format, Handle, RawHandle, ReplyUser};
 
+use env_logger::Env;
+
 const REPLY_NONE_NONE: ReplyUser = 0;
 const REPLY_HOOK_LOAD: ReplyUser = 1;
 const REPLY_PROP_TIME: ReplyUser = 2;
@@ -16,7 +18,8 @@ const REPLY_PROP_TIME: ReplyUser = 2;
 #[no_mangle]
 extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
     // TODO Maybe use MPV logger ?
-    env_logger::init();
+    let env = Env::new().filter("MPV_SB_LOG").write_style("MPV_SB_LOG_STYLE");
+    env_logger::init_from_env(env);
 
     // Wrap handle
     let mpv_handle = Handle::from_ptr(handle);
