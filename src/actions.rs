@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::mpv::{EventProperty, Format, Handle};
-use crate::sponsorblock::segment::{self, Segments};
+use crate::sponsorblock::segment::{get_segments, Segments};
 use crate::utils::get_youtube_id;
 
 macro_rules! unwrap_or_return {
@@ -22,17 +22,12 @@ impl Actions {
     }
 
     pub fn load_segments(&mut self, mpv_handle: &Handle, config: &Config) {
-        let path = match mpv_handle.get_property_string("path") {
-            Ok(p) => p,
+        self.segments = match mpv_handle.get_property_string("path") {
+            Ok(path) => get_youtube_id(&path).and_then(|id| get_segments(config, id)),
             Err(e) => {
                 log::error!("Failed to get path property: {}. Segments can't be loaded.", e);
-                return;
+                None
             }
-        };
-
-        self.segments = match get_youtube_id(&path) {
-            Some(id) => segment::get_segments(config, id),
-            None => None,
         };
     }
 
