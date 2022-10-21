@@ -11,8 +11,8 @@ use crate::mpv::{Event, Format, Handle, RawHandle, ReplyUser};
 use env_logger::Env;
 
 const REPLY_NONE_NONE: ReplyUser = 0;
-const REPLY_HOOK_LOAD: ReplyUser = 1;
-const REPLY_PROP_TIME: ReplyUser = 2;
+const REPLY_PROP_TIME: ReplyUser = 1;
+const REPLY_HOOK_LOAD: ReplyUser = 2;
 
 // MPV entry point
 #[no_mangle]
@@ -62,13 +62,14 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                 log::trace!("File loaded event on reply {}.", REPLY_NONE_NONE);
             }
             (REPLY_PROP_TIME, Ok(Event::PropertyChange(event))) => {
-                log::trace!("Time change event on reply {}.", REPLY_PROP_TIME);
+                log::trace!("Property change [time-pos] event on reply {}.", REPLY_PROP_TIME);
                 // Try to skip segments
                 actions.skip_segments(&mpv_handle, event);
             }
             (REPLY_HOOK_LOAD, Ok(Event::Hook(event))) => {
-                log::trace!("On load hook event on reply {}.", REPLY_HOOK_LOAD);
+                log::trace!("Hook [on_load] event on reply {}.", REPLY_HOOK_LOAD);
                 // Blocking operation
+                // Non blocking operation might be better, but risky on short videos ?!
                 actions.load_segments(&mpv_handle, &config);
                 // Unblock MPV and continue
                 if let Err(e) = mpv_handle.hook_continue(event.get_id()) {

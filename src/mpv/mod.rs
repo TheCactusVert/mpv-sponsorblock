@@ -63,7 +63,7 @@ impl fmt::Display for Error {
                 .to_str()
                 .unwrap_or("unknow error")
         };
-        write!(f, "{}", e_str)
+        write!(f, "[{}] {}", self.0 as i32, e_str)
     }
 }
 
