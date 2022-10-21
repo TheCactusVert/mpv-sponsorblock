@@ -1,13 +1,11 @@
 mod ffi;
-
 use ffi::*;
 
-use std::any::TypeId;
 use std::ffi::{c_void, CStr, CString, NulError};
 use std::fmt;
 use std::str::Utf8Error;
 
-pub type Format = mpv_format;
+pub type RawFormat = mpv_format;
 pub type RawHandle = *mut mpv_handle;
 pub type ReplyUser = u64;
 pub struct Handle(*mut mpv_handle);
@@ -21,9 +19,11 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 macro_rules! mpv_result {
     ($f:expr) => {
-        match $f {
-            mpv_error::SUCCESS => Ok(()),
-            e => Err(Error::new(e)),
+        unsafe {
+            match $f {
+                mpv_error::SUCCESS => Ok(()),
+                e => Err(Error::new(e)),
+            }
         }
     };
 }
@@ -111,6 +111,31 @@ impl fmt::Display for Event {
     }
 }
 
+pub trait Format: Sized {
+    fn get_format() -> mpv_format;
+    fn from_raw(raw: *const c_void) -> Self;
+}
+
+impl Format for f64 {
+    fn get_format() -> mpv_format {
+        mpv_format::DOUBLE
+    }
+
+    fn from_raw(raw: *const c_void) -> Self {
+        unsafe { *(raw as *mut Self) }
+    }
+}
+
+impl Format for i64 {
+    fn get_format() -> mpv_format {
+        mpv_format::INT64
+    }
+
+    fn from_raw(raw: *const c_void) -> Self {
+        unsafe { *(raw as *mut Self) }
+    }
+}
+
 impl Handle {
     pub fn from_ptr(handle: RawHandle) -> Self {
         assert!(!handle.is_null());
@@ -171,6 +196,22 @@ impl Handle {
         }
     }
 
+    pub fn set_property<T: 'static + Format, S: Into<String>>(&self, name: S, mut data: T) -> Result<()> {
+        let c_name = CString::new(name.into())?;
+        let p_data: *mut c_void = &mut data as *mut _ as *mut c_void;
+        let format = T::get_format();
+        mpv_result!(mpv_set_property(self.0, c_name.as_ptr(), format, p_data))
+    }
+
+    pub fn get_property<T: 'static + Format + Default, S: Into<String>>(&self, name: S) -> Result<T> {
+        let c_name = CString::new(name.into())?;
+        let mut data = T::default();
+        let p_data: *mut c_void = &mut data as *mut _ as *mut c_void;
+        let format = T::get_format();
+        mpv_result!(mpv_get_property(self.0, c_name.as_ptr(), format, p_data))?;
+        Ok(data)
+    }
+
     pub fn get_property_string<S: Into<String>>(&self, name: S) -> Result<String> {
         let c_name = CString::new(name.into())?;
 
@@ -179,6 +220,7 @@ impl Handle {
             if c_path.is_null() {
                 return Err(Error::new(mpv_error::PROPERTY_NOT_FOUND));
             }
+
             let c_str = CStr::from_ptr(c_path);
             let str_buf = c_str.to_str().map(|s| s.to_owned());
             mpv_free(c_path as *mut c_void);
@@ -186,24 +228,23 @@ impl Handle {
         }
     }
 
-    pub fn set_property<S: Into<String>, T>(&self, name: S, format: Format, mut data: T) -> Result<()> {
+    pub fn observe_property<S: Into<String>>(
+        &self,
+        reply_userdata: ReplyUser,
+        name: S,
+        format: RawFormat,
+    ) -> Result<()> {
         let c_name = CString::new(name.into())?;
-        let data: *mut c_void = &mut data as *mut _ as *mut c_void;
-        unsafe { mpv_result!(mpv_set_property(self.0, c_name.as_ptr(), format, data)) }
-    }
-
-    pub fn observe_property<S: Into<String>>(&self, reply_userdata: ReplyUser, name: S, format: Format) -> Result<()> {
-        let c_name = CString::new(name.into())?;
-        unsafe { mpv_result!(mpv_observe_property(self.0, reply_userdata, c_name.as_ptr(), format)) }
+        mpv_result!(mpv_observe_property(self.0, reply_userdata, c_name.as_ptr(), format))
     }
 
     pub fn hook_add<S: Into<String>>(&self, reply_userdata: ReplyUser, name: S, priority: i32) -> Result<()> {
         let c_name = CString::new(name.into())?;
-        unsafe { mpv_result!(mpv_hook_add(self.0, reply_userdata, c_name.as_ptr(), priority)) }
+        mpv_result!(mpv_hook_add(self.0, reply_userdata, c_name.as_ptr(), priority))
     }
 
     pub fn hook_continue(&self, id: u64) -> Result<()> {
-        unsafe { mpv_result!(mpv_hook_continue(self.0, id)) }
+        mpv_result!(mpv_hook_continue(self.0, id))
     }
 }
 
@@ -229,22 +270,12 @@ impl EventProperty {
         c_str.to_str().unwrap_or("unknown")
     }
 
-    pub fn get_data<T: Copy + 'static>(&self) -> Option<T> {
+    pub fn get_data<T: Copy + 'static + Format>(&self) -> Option<T> {
         unsafe {
-            let format = (*self.0).format;
-            if format == mpv_format::NONE {
-                return None;
-            }
-
-            let type_id = TypeId::of::<T>();
-            if type_id == TypeId::of::<i64>() {
-                assert!(format == mpv_format::INT64, "The format is not of type i64!");
-                Some(*((*self.0).data as *mut T))
-            } else if type_id == TypeId::of::<f64>() {
-                assert!(format == mpv_format::DOUBLE, "The format is not of type f64!");
-                Some(*((*self.0).data as *mut T))
+            if (*self.0).format == T::get_format() {
+                Some(T::from_raw((*self.0).data))
             } else {
-                panic!("Unsupported format!");
+                None
             }
         }
     }

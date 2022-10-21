@@ -6,7 +6,7 @@ mod utils;
 
 use crate::actions::Actions;
 use crate::config::Config;
-use crate::mpv::{Event, Format, Handle, RawHandle, ReplyUser};
+use crate::mpv::{Event, Handle, RawFormat, RawHandle, ReplyUser};
 
 use env_logger::Env;
 
@@ -28,13 +28,13 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
     log::debug!("Starting plugin SponsorBlock [{}]!", mpv_handle.client_name());
 
     // Load config file
-    let config: Config = Config::get();
+    let config = Config::get();
 
     // Create actions handler
-    let mut actions: Actions = Actions::new();
+    let mut actions = Actions::new();
 
     // Subscribe to property time-pos
-    if let Err(e) = mpv_handle.observe_property(REPLY_PROP_TIME, "time-pos", Format::DOUBLE) {
+    if let Err(e) = mpv_handle.observe_property(REPLY_PROP_TIME, "time-pos", RawFormat::DOUBLE) {
         log::error!("Failed to observe time position property: {}.", e);
         return -1;
     }
@@ -81,7 +81,7 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                 actions.load_segments(&mpv_handle, &config);
                 // Unblock MPV and continue
                 if let Err(e) = mpv_handle.hook_continue(event.get_id()) {
-                    log::error!("Failed to continue on load hook: {}.", e);
+                    log::error!("Failed to continue hook: {}.", e);
                     return -1;
                 }
             }

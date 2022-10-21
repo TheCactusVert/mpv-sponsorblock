@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::mpv::{EventProperty, Format, Handle};
+use crate::mpv::{EventProperty, Handle};
 use crate::sponsorblock::segment::{get_segments, Segments};
 use crate::utils::get_youtube_id;
 
@@ -55,7 +55,7 @@ impl Actions {
         }
 
         if old_time_pos != new_time_pos {
-            if let Err(e) = mpv_handle.set_property("time-pos", Format::DOUBLE, new_time_pos) {
+            if let Err(e) = mpv_handle.set_property("time-pos", new_time_pos) {
                 log::error!("Failed to set time position property: {}.", e);
             }
         }
