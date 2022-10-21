@@ -1,9 +1,11 @@
+mod error;
 mod ffi;
+
+use error::Error;
 use ffi::*;
 
-use std::ffi::{c_void, CStr, CString, NulError};
+use std::ffi::{c_void, CStr, CString};
 use std::fmt;
-use std::str::Utf8Error;
 
 pub type RawFormat = mpv_format;
 pub type RawHandle = *mut mpv_handle;
@@ -13,8 +15,6 @@ pub struct EventStartFile(*mut mpv_event_start_file);
 pub struct EventProperty(*mut mpv_event_property);
 pub struct EventHook(*mut mpv_event_hook);
 
-#[derive(Debug)]
-pub struct Error(mpv_error);
 pub type Result<T> = std::result::Result<T, Error>;
 
 macro_rules! mpv_result {
@@ -26,45 +26,6 @@ macro_rules! mpv_result {
             }
         }
     };
-}
-
-impl Error {
-    fn new(error: mpv_error) -> Self {
-        Self(error)
-    }
-}
-
-impl From<NulError> for Error {
-    fn from(_: NulError) -> Self {
-        Self::new(mpv_error::GENERIC)
-    }
-}
-
-impl From<Utf8Error> for Error {
-    fn from(_: Utf8Error) -> Self {
-        Self::new(mpv_error::GENERIC)
-    }
-}
-
-impl std::error::Error for Error {
-    fn description(&self) -> &str {
-        unsafe {
-            CStr::from_ptr(mpv_error_string(self.0))
-                .to_str()
-                .unwrap_or("unknow error")
-        }
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let e_str = unsafe {
-            CStr::from_ptr(mpv_error_string(self.0))
-                .to_str()
-                .unwrap_or("unknow error")
-        };
-        write!(f, "[{}] {}", self.0 as i32, e_str)
-    }
 }
 
 pub enum Event {
@@ -270,7 +231,7 @@ impl EventProperty {
         c_str.to_str().unwrap_or("unknown")
     }
 
-    pub fn get_data<T: Copy + 'static + Format>(&self) -> Option<T> {
+    pub fn get_data<T: Copy + Format>(&self) -> Option<T> {
         unsafe {
             if (*self.0).format == T::get_format() {
                 Some(T::from_raw((*self.0).data))
