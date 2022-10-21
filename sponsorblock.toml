@@ -1,5 +1,7 @@
 # Server address
 server_address = "https://sponsor.ajay.app"
+# Timeout: 0 means no timeout which might block MPV if API is not responding
+timeout = { secs = 2, nanos = 0 }
 # Categories: sponsor, selfpromo, interaction, poi_highlight, intro, outro, preview, music_offtopic, filler, exclusive_access
 categories = ["sponsor", "selfpromo", "intro", "outro", "exclusive_access"]
 # Action types: skip, mute, poi, full

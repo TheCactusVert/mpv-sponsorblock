@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, time::Duration};
 
 use regex::Regex;
 use serde_derive::Deserialize;
@@ -7,6 +7,8 @@ use serde_derive::Deserialize;
 pub struct Config {
     #[serde(default = "Config::default_server_address")]
     pub server_address: String,
+    #[serde(default = "Config::default_timeout")]
+    pub timeout: Duration,
     #[serde(default = "HashSet::default", deserialize_with = "Config::deserialize_categories")]
     categories: HashSet<String>,
     #[serde(default = "HashSet::default", deserialize_with = "Config::deserialize_action_types")]
@@ -38,6 +40,10 @@ impl Config {
         "https://sponsor.ajay.app".to_string()
     }
 
+    fn default_timeout() -> Duration {
+        Duration::from_secs(1)
+    }
+
     fn from_file() -> Option<Self> {
         let config_file = dirs::config_dir()?.join("mpv/sponsorblock.toml");
         Some(toml::from_str(&std::fs::read_to_string(config_file).ok()?).ok()?)
@@ -59,6 +65,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             server_address: Self::default_server_address(),
+            timeout: Self::default_timeout(),
             categories: HashSet::default(),
             action_types: HashSet::default(),
             privacy_api: bool::default(),

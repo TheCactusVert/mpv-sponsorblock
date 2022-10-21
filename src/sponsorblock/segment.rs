@@ -37,16 +37,19 @@ type Videos = Vec<Video>;
 
 impl Segment {
     fn get(config: &Config, id: String) -> Option<Segments> {
-        log::info!("Getting segments for video {}.", id);
+        log::info!("Getting segments for video {}...", id);
 
-        let buf = get_data(&format!(
-            "{}/api/skipSegments?videoID={}&{}",
-            config.server_address,
-            id,
-            config.parameters(),
-        ))
+        let buf = get_data(
+            &format!(
+                "{}/api/skipSegments?videoID={}&{}",
+                config.server_address,
+                id,
+                config.parameters(),
+            ),
+            config.timeout,
+        )
         .map_err(|e| {
-            log::error!("Failed to get SponsorBlock data: {}.", e.to_string());
+            log::error!("Failed to get segments: {}.", e.to_string());
             e
         })
         .ok()?;
@@ -56,20 +59,23 @@ impl Segment {
     }
 
     pub fn get_with_privacy(config: &Config, id: String) -> Option<Segments> {
-        log::info!("Getting segments for video {} with extra privacy.", id);
+        log::info!("Getting segments for video {} with extra privacy...", id);
 
         let mut hasher = Sha256::new(); // create a Sha256 object
         hasher.update(&id); // write input message
         let hash = hasher.finalize(); // read hash digest and consume hasher
 
-        let buf = get_data(&format!(
-            "{}/api/skipSegments/{:.4}?{}",
-            config.server_address,
-            hex::encode(hash),
-            config.parameters(),
-        ))
+        let buf = get_data(
+            &format!(
+                "{}/api/skipSegments/{:.4}?{}",
+                config.server_address,
+                hex::encode(hash),
+                config.parameters(),
+            ),
+            config.timeout,
+        )
         .map_err(|e| {
-            log::error!("Failed to get SponsorBlock data: {}.", e.to_string());
+            log::error!("Failed to get segments: {}.", e.to_string());
             e
         })
         .ok()?;

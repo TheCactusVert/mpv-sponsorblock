@@ -23,13 +23,7 @@ impl Actions {
 
     pub fn load_segments(&mut self, mpv_handle: &Handle, config: &Config) {
         self.segments = match mpv_handle.get_property_string("path") {
-            Ok(path) => {
-                let segments = get_youtube_id(&path).and_then(|id| get_segments(config, id));
-                if segments.is_none() {
-                    log::warn!("No segments have beean found. That might not be what you want.");
-                }
-                segments
-            }
+            Ok(path) => get_youtube_id(&path).and_then(|id| get_segments(config, id)),
             Err(e) => {
                 log::error!("Failed to get path property: {}. Segments can't be loaded.", e);
                 None
