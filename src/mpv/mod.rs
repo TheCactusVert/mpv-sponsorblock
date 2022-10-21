@@ -19,7 +19,7 @@ pub struct EventHook(*mut mpv_event_hook);
 pub struct Error(mpv_error);
 pub type Result<T> = std::result::Result<T, Error>;
 
-macro_rules! convert_result {
+macro_rules! mpv_result {
     ($f:expr) => {
         match $f {
             mpv_error::SUCCESS => Ok(()),
@@ -93,10 +93,10 @@ impl fmt::Display for Event {
             Self::None => write!(f, "none"),
             Self::Shutdown => write!(f, "shutdown"),
             Self::LogMessage => write!(f, "log message"),
-            Self::GetPropertyReply(_) => write!(f, "get property reply"),
+            Self::GetPropertyReply(ref event) => write!(f, "get property reply [{}]", event.get_name()),
             Self::SetPropertyReply => write!(f, "set property reply"),
             Self::CommandReply => write!(f, "command reply"),
-            Self::StartFile(_) => write!(f, "start file"),
+            Self::StartFile(ref event) => write!(f, "start file [{}]", event.get_playlist_entry_id()),
             Self::EndFile => write!(f, "end file"),
             Self::FileLoaded => write!(f, "file loaded"),
             Self::ClientMessage => write!(f, "client message"),
@@ -104,9 +104,9 @@ impl fmt::Display for Event {
             Self::AudioReconfig => write!(f, "audio reconfig"),
             Self::Seek => write!(f, "seek"),
             Self::PlaybackRestart => write!(f, "playback restart"),
-            Self::PropertyChange(_) => write!(f, "property change"),
+            Self::PropertyChange(ref event) => write!(f, "property change [{}]", event.get_name()),
             Self::QueueOverflow => write!(f, "queue overflow"),
-            Self::Hook(_) => write!(f, "hook"),
+            Self::Hook(ref event) => write!(f, "hook [{}]", event.get_name()),
         }
     }
 }
@@ -189,21 +189,21 @@ impl Handle {
     pub fn set_property<S: Into<String>, T>(&self, name: S, format: Format, mut data: T) -> Result<()> {
         let c_name = CString::new(name.into())?;
         let data: *mut c_void = &mut data as *mut _ as *mut c_void;
-        unsafe { convert_result!(mpv_set_property(self.0, c_name.as_ptr(), format, data)) }
+        unsafe { mpv_result!(mpv_set_property(self.0, c_name.as_ptr(), format, data)) }
     }
 
     pub fn observe_property<S: Into<String>>(&self, reply_userdata: ReplyUser, name: S, format: Format) -> Result<()> {
         let c_name = CString::new(name.into())?;
-        unsafe { convert_result!(mpv_observe_property(self.0, reply_userdata, c_name.as_ptr(), format)) }
+        unsafe { mpv_result!(mpv_observe_property(self.0, reply_userdata, c_name.as_ptr(), format)) }
     }
 
     pub fn hook_add<S: Into<String>>(&self, reply_userdata: ReplyUser, name: S, priority: i32) -> Result<()> {
         let c_name = CString::new(name.into())?;
-        unsafe { convert_result!(mpv_hook_add(self.0, reply_userdata, c_name.as_ptr(), priority)) }
+        unsafe { mpv_result!(mpv_hook_add(self.0, reply_userdata, c_name.as_ptr(), priority)) }
     }
 
     pub fn hook_continue(&self, id: u64) -> Result<()> {
-        unsafe { convert_result!(mpv_hook_continue(self.0, id)) }
+        unsafe { mpv_result!(mpv_hook_continue(self.0, id)) }
     }
 }
 
@@ -222,6 +222,11 @@ impl EventProperty {
     fn from_ptr(event: *mut mpv_event_property) -> Self {
         assert!(!event.is_null());
         Self(event)
+    }
+
+    pub fn get_name(&self) -> &str {
+        let c_str = unsafe { CStr::from_ptr((*self.0).name) };
+        c_str.to_str().unwrap_or("unknown")
     }
 
     pub fn get_data<T: Copy + 'static>(&self) -> Option<T> {
@@ -249,6 +254,11 @@ impl EventHook {
     fn from_ptr(event: *mut mpv_event_hook) -> Self {
         assert!(!event.is_null());
         Self(event)
+    }
+
+    pub fn get_name(&self) -> &str {
+        let c_str = unsafe { CStr::from_ptr((*self.0).name) };
+        c_str.to_str().unwrap_or("unknown")
     }
 
     pub fn get_id(&self) -> u64 {

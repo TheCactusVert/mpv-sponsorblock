@@ -49,12 +49,12 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
         // Wait for MPV events indefinitely
         match mpv_handle.wait_event(-1.) {
             (REPLY_NONE_NONE, Ok(Event::Shutdown)) => {
-                log::trace!("Shutdown event on reply {}.", REPLY_NONE_NONE);
+                log::trace!("Received shutdown event on reply {}.", REPLY_NONE_NONE);
                 // End plugin
                 return 0;
             }
             (REPLY_NONE_NONE, Ok(Event::EndFile)) => {
-                log::trace!("End file event on reply {}.", REPLY_NONE_NONE);
+                log::trace!("Received end file event on reply {}.", REPLY_NONE_NONE);
                 // Clean segments
                 actions.drop_segments();
             }
@@ -62,12 +62,20 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                 log::trace!("File loaded event on reply {}.", REPLY_NONE_NONE);
             }
             (REPLY_PROP_TIME, Ok(Event::PropertyChange(event))) => {
-                log::trace!("Property change [time-pos] event on reply {}.", REPLY_PROP_TIME);
+                log::trace!(
+                    "Received property change [{}] event on reply {}.",
+                    event.get_name(),
+                    REPLY_PROP_TIME
+                );
                 // Try to skip segments
                 actions.skip_segments(&mpv_handle, event);
             }
             (REPLY_HOOK_LOAD, Ok(Event::Hook(event))) => {
-                log::trace!("Hook [on_load] event on reply {}.", REPLY_HOOK_LOAD);
+                log::trace!(
+                    "Received hook [{}] event on reply {}.",
+                    event.get_name(),
+                    REPLY_HOOK_LOAD
+                );
                 // Blocking operation
                 // Non blocking operation might be better, but risky on short videos ?!
                 actions.load_segments(&mpv_handle, &config);
