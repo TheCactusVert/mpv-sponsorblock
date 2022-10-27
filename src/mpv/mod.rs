@@ -7,10 +7,10 @@ use ffi::*;
 use std::ffi::{c_void, CStr, CString};
 use std::fmt;
 
-pub type RawFormat = mpv_format;
 pub type RawHandle = *mut mpv_handle;
-pub type ReplyUser = u64;
+
 pub struct Handle(*mut mpv_handle);
+
 pub struct EventStartFile(*mut mpv_event_start_file);
 pub struct EventProperty(*mut mpv_event_property);
 pub struct EventHook(*mut mpv_event_hook);
@@ -103,7 +103,7 @@ impl Handle {
         Self(handle)
     }
 
-    pub fn wait_event(&self, timeout: f64) -> (ReplyUser, Result<Event>) {
+    pub fn wait_event(&self, timeout: f64) -> (u64, Result<Event>) {
         unsafe {
             let mpv_event = mpv_wait_event(self.0, timeout);
 
@@ -111,7 +111,7 @@ impl Handle {
                 return (0, Ok(Event::None));
             }
 
-            let mpv_reply: ReplyUser = (*mpv_event).reply_userdata;
+            let mpv_reply: u64 = (*mpv_event).reply_userdata;
 
             if (*mpv_event).error != mpv_error::SUCCESS {
                 return (mpv_reply, Err(Error::new((*mpv_event).error)));
@@ -189,17 +189,12 @@ impl Handle {
         }
     }
 
-    pub fn observe_property<S: Into<String>>(
-        &self,
-        reply_userdata: ReplyUser,
-        name: S,
-        format: RawFormat,
-    ) -> Result<()> {
+    pub fn observe_property<S: Into<String>>(&self, reply_userdata: u64, name: S, format: mpv_format) -> Result<()> {
         let c_name = CString::new(name.into())?;
         mpv_result!(mpv_observe_property(self.0, reply_userdata, c_name.as_ptr(), format))
     }
 
-    pub fn hook_add<S: Into<String>>(&self, reply_userdata: ReplyUser, name: S, priority: i32) -> Result<()> {
+    pub fn hook_add<S: Into<String>>(&self, reply_userdata: u64, name: S, priority: i32) -> Result<()> {
         let c_name = CString::new(name.into())?;
         mpv_result!(mpv_hook_add(self.0, reply_userdata, c_name.as_ptr(), priority))
     }

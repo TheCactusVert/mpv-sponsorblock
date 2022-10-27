@@ -6,13 +6,13 @@ mod utils;
 
 use crate::actions::Actions;
 use crate::config::Config;
-use crate::mpv::{Event, Handle, RawFormat, RawHandle, ReplyUser};
+use crate::mpv::{Event, Format, Handle, RawHandle};
 
 use env_logger::Env;
 
-const REPLY_NONE_NONE: ReplyUser = 0;
-const REPLY_PROP_TIME: ReplyUser = 1;
-const REPLY_HOOK_LOAD: ReplyUser = 2;
+const REPLY_NONE_NONE: u64 = 0;
+const REPLY_PROP_TIME: u64 = 1;
+const REPLY_HOOK_LOAD: u64 = 2;
 
 // MPV entry point
 #[no_mangle]
@@ -34,7 +34,7 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
     let mut actions = Actions::new();
 
     // Subscribe to property time-pos
-    if let Err(e) = mpv_handle.observe_property(REPLY_PROP_TIME, "time-pos", RawFormat::DOUBLE) {
+    if let Err(e) = mpv_handle.observe_property(REPLY_PROP_TIME, "time-pos", f64::get_format()) {
         log::error!("Failed to observe time position property: {}.", e);
         return -1;
     }
