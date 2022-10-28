@@ -34,16 +34,12 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
     let mut actions = Actions::new();
 
     // Subscribe to property time-pos
-    if let Err(e) = mpv_handle.observe_property(REPLY_PROP_TIME, "time-pos", f64::get_format()) {
-        log::error!("Failed to observe time position property: {}.", e);
-        return -1;
-    }
+    mpv_handle
+        .observe_property(REPLY_PROP_TIME, "time-pos", f64::get_format())
+        .unwrap();
 
     // Add hook on file load
-    if let Err(e) = mpv_handle.hook_add(REPLY_HOOK_LOAD, "on_load", 1) {
-        log::error!("Failed to add on load hook: {}.", e);
-        return -1;
-    }
+    mpv_handle.hook_add(REPLY_HOOK_LOAD, "on_load", 1).unwrap();
 
     loop {
         // Wait for MPV events indefinitely
@@ -62,20 +58,12 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                 log::trace!("File loaded event on reply {}.", REPLY_NONE_NONE);
             }
             (REPLY_PROP_TIME, Ok(Event::PropertyChange(event))) => {
-                log::trace!(
-                    "Received property change [{}] event on reply {}.",
-                    event.get_name(),
-                    REPLY_PROP_TIME
-                );
+                log::trace!("Received {} on reply {}.", event.get_name(), REPLY_PROP_TIME);
                 // Try to skip segments
                 actions.skip_segments(&mpv_handle, event);
             }
             (REPLY_HOOK_LOAD, Ok(Event::Hook(event))) => {
-                log::trace!(
-                    "Received hook [{}] event on reply {}.",
-                    event.get_name(),
-                    REPLY_HOOK_LOAD
-                );
+                log::trace!("Received {} on reply {}.", event.get_name(), REPLY_HOOK_LOAD);
                 // Blocking operation
                 // Non blocking operation might be better, but risky on short videos ?!
                 actions.load_segments(&mpv_handle, &config);
