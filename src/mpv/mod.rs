@@ -74,7 +74,7 @@ impl fmt::Display for Event {
 
 pub trait Format: Sized {
     fn get_format() -> mpv_format;
-    fn from_raw(raw: *const c_void) -> Self;
+    fn from_raw(raw: *const c_void) -> Option<Self>;
 }
 
 impl Format for f64 {
@@ -82,8 +82,8 @@ impl Format for f64 {
         mpv_format::DOUBLE
     }
 
-    fn from_raw(raw: *const c_void) -> Self {
-        unsafe { *(raw as *mut Self) }
+    fn from_raw(raw: *const c_void) -> Option<Self> {
+        Some(unsafe { *(raw as *mut Self) })
     }
 }
 
@@ -92,8 +92,20 @@ impl Format for i64 {
         mpv_format::INT64
     }
 
-    fn from_raw(raw: *const c_void) -> Self {
-        unsafe { *(raw as *mut Self) }
+    fn from_raw(raw: *const c_void) -> Option<Self> {
+        Some(unsafe { *(raw as *mut Self) })
+    }
+}
+
+impl Format for String {
+    fn get_format() -> mpv_format {
+        mpv_format::STRING
+    }
+
+    fn from_raw(raw: *const c_void) -> Option<Self> {
+        let c_str = unsafe { CStr::from_ptr(*(raw as *const *const i8)) };
+        let str_slice = c_str.to_str().ok()?;
+        Some(str_slice.to_owned())
     }
 }
 
@@ -226,10 +238,10 @@ impl EventProperty {
         c_str.to_str().unwrap_or("unknown")
     }
 
-    pub fn get_data<T: Copy + Format>(&self) -> Option<T> {
+    pub fn get_data<T: Format>(&self) -> Option<T> {
         unsafe {
             if (*self.0).format == T::get_format() {
-                Some(T::from_raw((*self.0).data))
+                T::from_raw((*self.0).data)
             } else {
                 None
             }
