@@ -84,6 +84,10 @@ impl Segment {
         let videos: Videos = serde_json::from_slice(&buf).ok()?;
         Some(videos.into_iter().find(|v| v.video_id == id)?.segments)
     }
+
+    pub fn is_action_skip(&self) -> bool {
+        self.action == "skip"
+    }
 }
 
 #[cached(
