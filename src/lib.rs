@@ -14,11 +14,11 @@ static NAME_PROP_PATH: &str = "path";
 static NAME_PROP_TIME: &str = "time-pos";
 static NAME_HOOK_LOAD: &str = "on_load";
 
-const REPLY_NONE_NONE: u64 = 0;
-const REPLY_PROP_TIME: u64 = 1;
-const REPLY_HOOK_LOAD: u64 = 2;
+const REPL_NONE_NONE: u64 = 0;
+const REPL_PROP_TIME: u64 = 1;
+const REPL_HOOK_LOAD: u64 = 2;
 
-const PRIO_HOOK_DEFAULT: i32 = 0;
+const PRIO_HOOK_NONE: i32 = 0;
 
 // MPV entry point
 #[no_mangle]
@@ -41,38 +41,38 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
 
     // Subscribe to property time-pos
     mpv_handle
-        .observe_property(REPLY_PROP_TIME, NAME_PROP_TIME, f64::get_format())
+        .observe_property(REPL_PROP_TIME, NAME_PROP_TIME, f64::get_format())
         .unwrap();
 
     // Add hook on file load
     mpv_handle
-        .hook_add(REPLY_HOOK_LOAD, NAME_HOOK_LOAD, PRIO_HOOK_DEFAULT)
+        .hook_add(REPL_HOOK_LOAD, NAME_HOOK_LOAD, PRIO_HOOK_NONE)
         .unwrap();
 
     loop {
         // Wait for MPV events indefinitely
         match mpv_handle.wait_event(-1.) {
-            (REPLY_NONE_NONE, Ok(Event::Shutdown)) => {
-                log::trace!("Received shutdown event on reply {}.", REPLY_NONE_NONE);
+            (REPL_NONE_NONE, Ok(Event::Shutdown)) => {
+                log::trace!("Received shutdown event on reply {}.", REPL_NONE_NONE);
                 // End plugin
                 return 0;
             }
-            (REPLY_NONE_NONE, Ok(Event::EndFile)) => {
-                log::trace!("Received end file event on reply {}.", REPLY_NONE_NONE);
+            (REPL_NONE_NONE, Ok(Event::EndFile)) => {
+                log::trace!("Received end file event on reply {}.", REPL_NONE_NONE);
                 // Clean segments
                 actions.drop_segments();
             }
-            (REPLY_PROP_TIME, Ok(Event::PropertyChange(event))) => {
-                log::trace!("Received {} on reply {}.", event.get_name(), REPLY_PROP_TIME);
-                // Get new time posistion
+            (REPL_PROP_TIME, Ok(Event::PropertyChange(event))) => {
+                log::trace!("Received {} on reply {}.", event.get_name(), REPL_PROP_TIME);
+                // Get new time position
                 if let Some(ref s) = event.get_data::<f64>().and_then(|time| actions.get_segment(time)) {
                     log::info!("Skipping segment [{}] to {}.", s.category, s.segment[1]);
                     // Skip segments
                     mpv_handle.set_property(NAME_PROP_TIME, s.segment[1]).unwrap();
                 }
             }
-            (REPLY_HOOK_LOAD, Ok(Event::Hook(event))) => {
-                log::trace!("Received {} on reply {}.", event.get_name(), REPLY_HOOK_LOAD);
+            (REPL_HOOK_LOAD, Ok(Event::Hook(event))) => {
+                log::trace!("Received {} on reply {}.", event.get_name(), REPL_HOOK_LOAD);
                 // Get video path
                 let path = mpv_handle.get_property_string(NAME_PROP_PATH).unwrap();
                 // Blocking operation
