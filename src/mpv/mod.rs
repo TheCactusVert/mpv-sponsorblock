@@ -161,28 +161,23 @@ impl Handle {
     }
 
     pub fn client_name(&self) -> String {
-        unsafe {
-            let c_name = mpv_client_name(self.0);
-            let c_str = CStr::from_ptr(c_name);
-            let str_slice: &str = c_str.to_str().unwrap_or("unknown");
-            str_slice.to_owned()
-        }
+        let c_name = unsafe { CStr::from_ptr(mpv_client_name(self.0)) };
+        let str_slice: &str = c_name.to_str().unwrap_or("unknown");
+        str_slice.to_owned()
     }
 
     pub fn set_property<T: 'static + Format, S: Into<String>>(&self, name: S, mut data: T) -> Result<()> {
         let c_name = CString::new(name.into())?;
         let p_data: *mut c_void = &mut data as *mut _ as *mut c_void;
-        let format = T::get_format();
-        mpv_result!(mpv_set_property(self.0, c_name.as_ptr(), format, p_data))
+        mpv_result!(mpv_set_property(self.0, c_name.as_ptr(), T::get_format(), p_data))
     }
 
-    pub fn get_property<T: 'static + Format + Default, S: Into<String>>(&self, name: S) -> Result<T> {
+    pub fn get_property<T: Format + Default, S: Into<String>>(&self, name: S) -> Result<T> {
         let c_name = CString::new(name.into())?;
-        let mut data = T::default();
-        let p_data: *mut c_void = &mut data as *mut _ as *mut c_void;
-        let format = T::get_format();
-        mpv_result!(mpv_get_property(self.0, c_name.as_ptr(), format, p_data))?;
-        Ok(data)
+        let p_data: *mut c_void = std::ptr::null_mut();
+        assert!(p_data.is_null());
+        mpv_result!(mpv_get_property(self.0, c_name.as_ptr(), T::get_format(), p_data))?;
+        T::from_raw(p_data).ok_or(Error::new(mpv_error::GENERIC))
     }
 
     pub fn get_property_string<S: Into<String>>(&self, name: S) -> Result<String> {
