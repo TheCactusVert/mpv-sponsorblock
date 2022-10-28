@@ -57,11 +57,6 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                 // End plugin
                 return 0;
             }
-            (REPL_NONE_NONE, Ok(Event::EndFile)) => {
-                log::trace!("Received end file event on reply {}.", REPL_NONE_NONE);
-                // Clean segments
-                actions.drop_segments();
-            }
             (REPL_PROP_TIME, Ok(Event::PropertyChange(event))) => {
                 log::trace!("Received {} on reply {}.", event.get_name(), REPL_PROP_TIME);
                 // Get new time position

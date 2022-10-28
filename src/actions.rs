@@ -12,10 +12,6 @@ impl Actions {
         self.segments = get_youtube_id(path).and_then(|id| get_segments(config, id));
     }
 
-    pub fn drop_segments(&mut self) {
-        self.segments = None;
-    }
-
     pub fn get_segment(&self, time: f64) -> Option<&Segment> {
         self.segments
             .iter()
