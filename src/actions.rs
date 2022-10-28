@@ -1,5 +1,4 @@
 use crate::config::Config;
-use crate::mpv::EventProperty;
 use crate::sponsorblock::segment::{get_segments, Segment, Segments};
 use crate::utils::get_youtube_id;
 
@@ -17,14 +16,11 @@ impl Actions {
         self.segments = None;
     }
 
-    pub fn skip_segments(&self, mpv_event: EventProperty) -> Option<&Segment> {
-        let time_pos: f64 = mpv_event.get_data()?;
-        match &self.segments {
-            Some(segments) => segments
-                .iter()
-                .filter(|s| s.is_action_skip() && time_pos >= s.segment[0] && time_pos < s.segment[1])
-                .next(),
-            None => None,
-        }
+    pub fn get_segment(&self, time: f64) -> Option<&Segment> {
+        self.segments
+            .iter()
+            .flatten()
+            .filter(|s| s.is_action_skip() && s.is_in_segment(time))
+            .next()
     }
 }

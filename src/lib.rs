@@ -62,13 +62,10 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                 // Clean segments
                 actions.drop_segments();
             }
-            (REPLY_NONE_NONE, Ok(Event::FileLoaded)) => {
-                log::trace!("File loaded event on reply {}.", REPLY_NONE_NONE);
-            }
             (REPLY_PROP_TIME, Ok(Event::PropertyChange(event))) => {
                 log::trace!("Received {} on reply {}.", event.get_name(), REPLY_PROP_TIME);
                 // Get new time posistion
-                if let Some(ref s) = actions.skip_segments(event) {
+                if let Some(ref s) = event.get_data::<f64>().and_then(|time| actions.get_segment(time)) {
                     log::info!("Skipping segment [{}] to {}.", s.category, s.segment[1]);
                     // Skip segments
                     mpv_handle.set_property(NAME_PROP_TIME, s.segment[1]).unwrap();

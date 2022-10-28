@@ -88,6 +88,10 @@ impl Segment {
     pub fn is_action_skip(&self) -> bool {
         self.action == "skip"
     }
+
+    pub fn is_in_segment(&self, time: f64) -> bool {
+        time >= self.segment[0] && time < self.segment[1]
+    }
 }
 
 #[cached(
