@@ -7,11 +7,13 @@ mod utils;
 use crate::actions::Actions;
 use crate::config::Config;
 use crate::mpv::{Event, Format, Handle, RawHandle};
+use crate::sponsorblock::action::Action;
 
 use env_logger::Env;
 
 static NAME_PROP_PATH: &str = "path";
 static NAME_PROP_TIME: &str = "time-pos";
+static NAME_PROP_MUTE: &str = "mute";
 static NAME_HOOK_LOAD: &str = "on_load";
 
 const REPL_NONE_NONE: u64 = 0;
@@ -60,10 +62,19 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
             (REPL_PROP_TIME, Ok(Event::PropertyChange(event))) => {
                 log::trace!("Received {} on reply {}.", event.get_name(), REPL_PROP_TIME);
                 // Get new time position
-                if let Some(ref s) = event.get_data::<f64>().and_then(|time| actions.get_segment(time)) {
-                    log::info!("Skipping segment [{}] to {}.", s.category, s.segment[1]);
-                    // Skip segments
-                    mpv_handle.set_property(NAME_PROP_TIME, s.segment[1]).unwrap();
+                match event.get_data::<f64>().and_then(|time| actions.get_segment(time)) {
+                    Some(ref s) if s.action == Action::Skip => {
+                        log::info!("Skipping segment [{}] to {}.", s.category, s.segment[1]);
+                        mpv_handle.set_property(NAME_PROP_TIME, s.segment[1]).unwrap();
+                    }
+                    /*Some(ref s) if s.action == Action::Mute => {
+                        log::info!("Muting segment [{}] to {}.", s.category, s.segment[1]);
+                        mpv_handle.set_property(NAME_PROP_MUTE, String::from("on")).unwrap();
+                    }*/
+                    Some(ref s) => {
+                        log::trace!("Unsupported segment action [{}].", s.action);
+                    }
+                    None => {}
                 }
             }
             (REPL_HOOK_LOAD, Ok(Event::Hook(event))) => {
@@ -72,7 +83,7 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                 let path = mpv_handle.get_property_string(NAME_PROP_PATH).unwrap();
                 // Blocking operation
                 // Non blocking operation might be better, but risky on short videos ?!
-                actions.load_segments(&path, &config);
+                actions = Actions::new(&path, &config);
                 // Unblock MPV and continue
                 mpv_handle.hook_continue(event.get_id()).unwrap();
             }

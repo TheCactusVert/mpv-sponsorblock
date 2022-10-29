@@ -1,6 +1,9 @@
+use crate::sponsorblock::action::Action;
+use crate::sponsorblock::category::Category;
+
 use std::{collections::HashSet, time::Duration};
 
-use regex::Regex;
+use anyhow::{anyhow, Result};
 use serde_derive::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -9,33 +12,15 @@ pub struct Config {
     pub server_address: String,
     #[serde(default = "Config::default_timeout")]
     pub timeout: Duration,
-    #[serde(default = "HashSet::default", deserialize_with = "Config::deserialize_categories")]
-    categories: HashSet<String>,
-    #[serde(default = "HashSet::default", deserialize_with = "Config::deserialize_action_types")]
-    action_types: HashSet<String>,
+    #[serde(default = "HashSet::default")]
+    categories: HashSet<Category>,
+    #[serde(default = "HashSet::default")]
+    action_types: HashSet<Action>,
     #[serde(default = "bool::default")]
     pub privacy_api: bool,
 }
 
 impl Config {
-    fn deserialize_categories<'de, D>(deserializer: D) -> Result<HashSet<String>, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let regex = Regex::new(r"^sponsor|selfpromo|interaction|poi_highlight|intro|outro|preview|music_offtopic|filler|exclusive_access+$").unwrap();
-        let categories: HashSet<String> = serde::Deserialize::deserialize(deserializer)?;
-        Ok(categories.into_iter().filter(|v| regex.is_match(v)).collect())
-    }
-
-    fn deserialize_action_types<'de, D>(deserializer: D) -> Result<HashSet<String>, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let regex = Regex::new(r"^skip|mute|poi|full+$").unwrap();
-        let categories: HashSet<String> = serde::Deserialize::deserialize(deserializer)?;
-        Ok(categories.into_iter().filter(|v| regex.is_match(v)).collect())
-    }
-
     fn default_server_address() -> String {
         "https://sponsor.ajay.app".to_string()
     }
@@ -44,13 +29,21 @@ impl Config {
         Duration::from_secs(1)
     }
 
-    fn from_file() -> Option<Self> {
-        let config_file = dirs::config_dir()?.join("mpv/sponsorblock.toml");
-        Some(toml::from_str(&std::fs::read_to_string(config_file).ok()?).ok()?)
+    fn from_file() -> Result<Self> {
+        let config_file = dirs::config_dir()
+            .ok_or(anyhow!("failed to find config directory"))?
+            .join("mpv/sponsorblock.toml");
+        Ok(toml::from_str(&std::fs::read_to_string(config_file)?)?)
     }
 
     pub fn get() -> Self {
-        Self::from_file().unwrap_or_default()
+        match Self::from_file() {
+            Ok(c) => c,
+            Err(e) => {
+                log::error!("Failed to read config file: {}", e);
+                Config::default()
+            }
+        }
     }
 
     pub fn parameters(&self) -> String {

@@ -1,6 +1,12 @@
 use crate::config::Config;
 use crate::utils::get_data;
 
+use super::action::Action;
+use super::category::Category;
+
+use std::cmp::Ordering;
+
+use anyhow::{anyhow, Result};
 use cached::proc_macro::cached;
 use cached::SizedCache;
 use serde_derive::Deserialize;
@@ -9,19 +15,39 @@ use sha2::{Digest, Sha256};
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Segment {
-    pub category: String,
+    pub category: Category,
     #[serde(rename = "actionType")]
-    pub action: String,
+    pub action: Action,
     pub segment: [f64; 2],
     #[serde(rename = "UUID")]
     pub uuid: String,
-    pub locked: i64,
-    pub votes: i64,
-    pub video_duration: f64,
-    #[serde(rename = "userID")]
-    pub user_id: String,
-    pub description: String,
+    //pub locked: i64,
+    //pub votes: i64,
+    //pub video_duration: f64,
+    //#[serde(rename = "userID")]
+    //pub user_id: String,
+    //pub description: String,
 }
+
+impl PartialOrd for Segment {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Segment {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.action.cmp(&other.action) // Sort by actions
+    }
+}
+
+impl PartialEq for Segment {
+    fn eq(&self, other: &Self) -> bool {
+        self.uuid == other.uuid
+    }
+}
+
+impl Eq for Segment {}
 
 pub type Segments = Vec<Segment>;
 
@@ -30,13 +56,14 @@ pub type Segments = Vec<Segment>;
 struct Video {
     #[serde(rename = "videoID")]
     pub video_id: String,
+    //pub hash: String,
     pub segments: Segments,
 }
 
 type Videos = Vec<Video>;
 
 impl Segment {
-    fn get(config: &Config, id: String) -> Option<Segments> {
+    fn get(config: &Config, id: String) -> Result<Segments> {
         log::info!("Getting segments for video {}...", id);
 
         let buf = get_data(
@@ -47,18 +74,14 @@ impl Segment {
                 config.parameters(),
             ),
             config.timeout,
-        )
-        .map_err(|e| {
-            log::error!("Failed to get segments: {}.", e.to_string());
-            e
-        })
-        .ok()?;
+        )?;
 
         // Parse the string of data into Segments.
-        serde_json::from_slice(&buf).ok()
+        let segments: Segments = serde_json::from_slice(&buf)?;
+        Ok(segments)
     }
 
-    pub fn get_with_privacy(config: &Config, id: String) -> Option<Segments> {
+    fn get_with_privacy(config: &Config, id: String) -> Result<Segments> {
         log::info!("Getting segments for video {} with extra privacy...", id);
 
         let mut hasher = Sha256::new(); // create a Sha256 object
@@ -73,20 +96,15 @@ impl Segment {
                 config.parameters(),
             ),
             config.timeout,
-        )
-        .map_err(|e| {
-            log::error!("Failed to get segments: {}.", e.to_string());
-            e
-        })
-        .ok()?;
+        )?;
 
         // Parse the string of data into Videos.
-        let videos: Videos = serde_json::from_slice(&buf).ok()?;
-        Some(videos.into_iter().find(|v| v.video_id == id)?.segments)
-    }
-
-    pub fn is_action_skip(&self) -> bool {
-        self.action == "skip"
+        let videos: Videos = serde_json::from_slice(&buf)?;
+        Ok(videos
+            .into_iter()
+            .find(|v| v.video_id == id)
+            .ok_or(anyhow!("the SponsorBlock API returned invalid data."))?
+            .segments)
     }
 
     pub fn is_in_segment(&self, time: f64) -> bool {
@@ -106,4 +124,13 @@ pub fn get_segments(config: &Config, id: String) -> Option<Segments> {
     } else {
         Segment::get(config, id)
     }
+    .map(|mut segments| {
+        segments.sort();
+        segments
+    })
+    .map_err(|e| {
+        log::error!("Failed to get segments: {}.", e);
+        e
+    })
+    .ok()
 }
