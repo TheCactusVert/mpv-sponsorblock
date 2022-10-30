@@ -4,12 +4,26 @@ use crate::sponsorblock::category::Category;
 use crate::sponsorblock::segment::{get_segments, Segment, Segments};
 use crate::utils::get_youtube_id;
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Volume {
+    Default,
+    User,
+    Plugin, // Muted
+}
+
+impl Default for Volume {
+    fn default() -> Self {
+        Self::Default
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct Actions {
     skippable: Segments,
     mutable: Segments,
     poi: Option<Segment>,
     full: Option<Segment>,
+    volume: (f64, Volume),
 }
 
 impl Actions {
@@ -45,5 +59,26 @@ impl Actions {
 
     pub fn get_video_category(&self) -> Option<Category> {
         self.full.as_ref().map(|s| s.category)
+    }
+
+    pub fn force_muted(&mut self) {
+        self.volume.1 = Volume::Plugin;
+    }
+
+    pub fn reset_muted(&mut self) {
+        self.volume.1 = Volume::Default;
+    }
+
+    pub fn set_volume(&mut self, volume: f64) {
+        self.volume = match self.volume.1 {
+            Volume::Plugin if volume <= 2. => self.volume,
+            Volume::Plugin => (volume, Volume::User),
+            Volume::User => (volume, Volume::User),
+            Volume::Default => (volume, Volume::Default),
+        }
+    }
+
+    pub fn get_volume(&self) -> (f64, Volume) {
+        self.volume
     }
 }

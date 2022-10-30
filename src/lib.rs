@@ -6,7 +6,7 @@ mod mpv;
 mod sponsorblock;
 mod utils;
 
-use actions::Actions;
+use actions::{Actions, Volume};
 use config::Config;
 use mpv::{Event, Format, Handle, RawHandle};
 
@@ -14,12 +14,12 @@ use env_logger::Env;
 
 static NAME_PROP_PATH: &str = "path";
 static NAME_PROP_TIME: &str = "time-pos";
-static NAME_PROP_MUTE: &str = "mute";
+static NAME_PROP_VOLU: &str = "volume";
 static NAME_HOOK_LOAD: &str = "on_load";
 
 const REPL_NONE_NONE: u64 = 0;
 const REPL_PROP_TIME: u64 = 1;
-const REPL_PROP_MUTE: u64 = 2;
+const REPL_PROP_VOLU: u64 = 2;
 const REPL_HOOK_LOAD: u64 = 3;
 
 const PRIO_HOOK_NONE: i32 = 0;
@@ -50,7 +50,7 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
 
     // Subscribe to property volume
     mpv_handle
-        .observe_property(REPL_PROP_MUTE, NAME_PROP_MUTE, String::get_format())
+        .observe_property(REPL_PROP_VOLU, NAME_PROP_VOLU, f64::get_format())
         .unwrap();
 
     // Add hook on file load
@@ -68,13 +68,22 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
             }
             (REPL_NONE_NONE, Ok(Event::FileLoaded)) => {
                 log::trace!("Received file loaded event on reply {}.", REPL_NONE_NONE);
-                // On Screen Display instead of log
+                // TODO On Screen Display instead of log
                 if let Some(c) = actions.get_video_category() {
                     log::info!("Video category: {}", c);
                 }
-                // On Screen Display instead of log
+                // TODO On Screen Display instead of log
                 if let Some(p) = actions.get_video_poi() {
                     log::info!("Video POI at: {} s", p);
+                }
+            }
+            (REPL_NONE_NONE, Ok(Event::EndFile)) => {
+                log::trace!("Received end file event on reply {}.", REPL_NONE_NONE);
+                // Reset volume when file end to avoid starting nexst file with volume at 0
+                if Volume::Plugin == actions.get_volume().1 {
+                    log::info!("Unmuting video.");
+                    actions.reset_muted();
+                    mpv_handle.set_property(NAME_PROP_VOLU, actions.get_volume().0).unwrap();
                 }
             }
             (REPL_PROP_TIME, Ok(Event::PropertyChange(event))) => {
@@ -87,21 +96,27 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                         mpv_handle.set_property(NAME_PROP_TIME, s.segment[1]).unwrap();
                     } else if let Some(ref s) = actions.get_mute_segment(time_pos) {
                         // Mute when no skip segments
-                        log::info!("Muting {}.", s);
-                        //mpv_handle.set_property().unwrap();
+                        if Volume::Default == actions.get_volume().1 {
+                            log::info!("Muting {}.", s);
+                            actions.force_muted();
+                            mpv_handle.set_property(NAME_PROP_VOLU, 0. as f64).unwrap();
+                        }
                     } else {
-                        //log::info!("Unmuting video.");
-                        //mpv_handle.set_property().unwrap();
+                        // Reset volume when not in mute segment
+                        if Volume::Default != actions.get_volume().1 {
+                            log::info!("Unmuting video.");
+                            actions.reset_muted();
+                            mpv_handle.set_property(NAME_PROP_VOLU, actions.get_volume().0).unwrap();
+                        }
                     }
                 } else {
                     log::warn!("Received {} without data. Ignoring...", event.get_name());
                 }
             }
-            (REPL_PROP_MUTE, Ok(Event::PropertyChange(event))) => {
-                log::trace!("Received {} on reply {}.", event.get_name(), REPL_PROP_MUTE);
-                if let Some(mute) = event.get_data::<String>() {
-                    // TODO Should do stuff
-                    log::info!("Mute state: {}", mute);
+            (REPL_PROP_VOLU, Ok(Event::PropertyChange(event))) => {
+                log::trace!("Received {} on reply {}.", event.get_name(), REPL_PROP_VOLU);
+                if let Some(volume) = event.get_data::<f64>() {
+                    actions.set_volume(volume);
                 } else {
                     // Should be impossible
                     log::warn!("Received {} without data. Ignoring...", event.get_name());
@@ -114,6 +129,7 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                 // Blocking operation
                 // Non blocking operation might be better, but risky on short videos ?!
                 actions.load_chapters(&path, &config);
+                actions.reset_muted();
                 // Unblock MPV and continue
                 mpv_handle.hook_continue(event.get_id()).unwrap();
             }
