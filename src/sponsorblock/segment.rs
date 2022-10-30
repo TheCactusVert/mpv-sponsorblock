@@ -39,7 +39,7 @@ struct Video {
 type Videos = Vec<Video>;
 
 impl Segment {
-    pub fn get(config: &Config, id: String) -> Result<Segments> {
+    pub(super) fn get(config: &Config, id: String) -> Result<Segments> {
         let buf = get_data(
             &format!(
                 "{}/api/skipSegments?videoID={}&{}",
@@ -55,7 +55,7 @@ impl Segment {
         Ok(segments)
     }
 
-    pub fn get_with_privacy(config: &Config, id: String) -> Result<Segments> {
+    pub(super) fn get_with_privacy(config: &Config, id: String) -> Result<Segments> {
         let mut hasher = Sha256::new(); // create a Sha256 object
         hasher.update(&id); // write input message
         let hash = hasher.finalize(); // read hash digest and consume hasher
