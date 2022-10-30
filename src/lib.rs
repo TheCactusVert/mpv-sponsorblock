@@ -74,7 +74,7 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                 }
                 // TODO On Screen Display instead of log
                 if let Some(p) = actions.get_video_poi() {
-                    log::info!("Video POI at: {} s", p);
+                    log::info!("Video highlight at: {} s", p);
                 }
             }
             (REPL_NONE_NONE, Ok(Event::EndFile)) => {
