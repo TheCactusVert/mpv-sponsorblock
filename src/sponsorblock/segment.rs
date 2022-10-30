@@ -5,8 +5,6 @@ use super::action::Action;
 use super::category::Category;
 
 use anyhow::{anyhow, Result};
-use cached::proc_macro::cached;
-use cached::SizedCache;
 use serde_derive::Deserialize;
 use sha2::{Digest, Sha256};
 
@@ -41,9 +39,7 @@ struct Video {
 type Videos = Vec<Video>;
 
 impl Segment {
-    fn get(config: &Config, id: String) -> Result<Segments> {
-        log::debug!("Getting segments for video {}...", id);
-
+    pub fn get(config: &Config, id: String) -> Result<Segments> {
         let buf = get_data(
             &format!(
                 "{}/api/skipSegments?videoID={}&{}",
@@ -59,9 +55,7 @@ impl Segment {
         Ok(segments)
     }
 
-    fn get_with_privacy(config: &Config, id: String) -> Result<Segments> {
-        log::debug!("Getting segments for video {} with extra privacy...", id);
-
+    pub fn get_with_privacy(config: &Config, id: String) -> Result<Segments> {
         let mut hasher = Sha256::new(); // create a Sha256 object
         hasher.update(&id); // write input message
         let hash = hasher.finalize(); // read hash digest and consume hasher
@@ -98,23 +92,4 @@ impl std::fmt::Display for Segment {
             self.category, self.segment[0], self.segment[1]
         )
     }
-}
-
-#[cached(
-    type = "SizedCache<String, Segments>",
-    create = "{ SizedCache::with_size(10) }",
-    convert = r#"{ id.clone() }"#,
-    option = true
-)]
-pub fn get_segments(config: &Config, id: String) -> Option<Segments> {
-    if config.privacy_api {
-        Segment::get_with_privacy(config, id)
-    } else {
-        Segment::get(config, id)
-    }
-    .map_err(|e| {
-        log::error!("Failed to get segments: {}.", e);
-        e
-    })
-    .ok()
 }

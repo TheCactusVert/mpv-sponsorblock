@@ -1,7 +1,8 @@
 use crate::config::Config;
 use crate::sponsorblock::action::Action;
 use crate::sponsorblock::category::Category;
-use crate::sponsorblock::segment::{get_segments, Segment, Segments};
+use crate::sponsorblock::get_segments;
+use crate::sponsorblock::segment::{Segment, Segments};
 use crate::utils::get_youtube_id;
 
 pub const MUTE_VOLUME: f64 = 0.;
