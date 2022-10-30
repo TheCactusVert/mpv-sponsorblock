@@ -4,6 +4,8 @@ use crate::sponsorblock::category::Category;
 use crate::sponsorblock::segment::{get_segments, Segment, Segments};
 use crate::utils::get_youtube_id;
 
+pub const MUTE_VOLUME: f64 = 0.;
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Volume {
     Default,
@@ -71,14 +73,18 @@ impl Actions {
 
     pub fn set_volume(&mut self, volume: f64) {
         self.volume = match self.volume.1 {
-            Volume::Plugin if volume <= 2. => self.volume,
+            Volume::Plugin if volume <= MUTE_VOLUME => self.volume,
             Volume::Plugin => (volume, Volume::User),
             Volume::User => (volume, Volume::User),
             Volume::Default => (volume, Volume::Default),
         }
     }
 
-    pub fn get_volume(&self) -> (f64, Volume) {
-        self.volume
+    pub fn get_volume(&self) -> f64 {
+        self.volume.0
+    }
+
+    pub fn get_volume_source(&self) -> Volume {
+        self.volume.1
     }
 }

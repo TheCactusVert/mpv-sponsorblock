@@ -6,7 +6,7 @@ mod mpv;
 mod sponsorblock;
 mod utils;
 
-use actions::{Actions, Volume};
+use actions::{Actions, Volume, MUTE_VOLUME};
 use config::Config;
 use mpv::{Event, Format, Handle, RawHandle};
 
@@ -48,7 +48,7 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
         .observe_property(REPL_PROP_TIME, NAME_PROP_TIME, f64::get_format())
         .unwrap();
 
-    // Subscribe to property volume
+    // Subscribe to property volume (is mute deprecated ?)
     mpv_handle
         .observe_property(REPL_PROP_VOLU, NAME_PROP_VOLU, f64::get_format())
         .unwrap();
@@ -79,11 +79,11 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
             }
             (REPL_NONE_NONE, Ok(Event::EndFile)) => {
                 log::trace!("Received end file event on reply {}.", REPL_NONE_NONE);
-                // Reset volume when file end to avoid starting nexst file with volume at 0
-                if Volume::Plugin == actions.get_volume().1 {
+                // Reset volume when file end to avoid starting next file with volume at 0
+                if Volume::Default != actions.get_volume_source() {
                     log::info!("Unmuting video.");
                     actions.reset_muted();
-                    mpv_handle.set_property(NAME_PROP_VOLU, actions.get_volume().0).unwrap();
+                    mpv_handle.set_property(NAME_PROP_VOLU, actions.get_volume()).unwrap();
                 }
             }
             (REPL_PROP_TIME, Ok(Event::PropertyChange(event))) => {
@@ -96,17 +96,17 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                         mpv_handle.set_property(NAME_PROP_TIME, s.segment[1]).unwrap();
                     } else if let Some(ref s) = actions.get_mute_segment(time_pos) {
                         // Mute when no skip segments
-                        if Volume::Default == actions.get_volume().1 {
+                        if Volume::Default == actions.get_volume_source() {
                             log::info!("Muting {}.", s);
                             actions.force_muted();
-                            mpv_handle.set_property(NAME_PROP_VOLU, 0. as f64).unwrap();
+                            mpv_handle.set_property(NAME_PROP_VOLU, MUTE_VOLUME).unwrap();
                         }
                     } else {
                         // Reset volume when not in mute segment
-                        if Volume::Default != actions.get_volume().1 {
+                        if Volume::Default != actions.get_volume_source() {
                             log::info!("Unmuting video.");
                             actions.reset_muted();
-                            mpv_handle.set_property(NAME_PROP_VOLU, actions.get_volume().0).unwrap();
+                            mpv_handle.set_property(NAME_PROP_VOLU, actions.get_volume()).unwrap();
                         }
                     }
                 } else {
@@ -115,7 +115,9 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
             }
             (REPL_PROP_VOLU, Ok(Event::PropertyChange(event))) => {
                 log::trace!("Received {} on reply {}.", event.get_name(), REPL_PROP_VOLU);
+                // Get the new volume
                 if let Some(volume) = event.get_data::<f64>() {
+                    // Save the volume
                     actions.set_volume(volume);
                 } else {
                     // Should be impossible
