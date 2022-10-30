@@ -4,8 +4,6 @@ use crate::utils::get_data;
 use super::action::Action;
 use super::category::Category;
 
-use std::cmp::Ordering;
-
 use anyhow::{anyhow, Result};
 use cached::proc_macro::cached;
 use cached::SizedCache;
@@ -19,8 +17,8 @@ pub struct Segment {
     #[serde(rename = "actionType")]
     pub action: Action,
     pub segment: [f64; 2],
-    #[serde(rename = "UUID")]
-    pub uuid: String,
+    //#[serde(rename = "UUID")]
+    //pub uuid: String,
     //pub locked: i64,
     //pub votes: i64,
     //pub video_duration: f64,
@@ -28,26 +26,6 @@ pub struct Segment {
     //pub user_id: String,
     //pub description: String,
 }
-
-impl PartialOrd for Segment {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Segment {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.action.cmp(&other.action) // Sort by actions
-    }
-}
-
-impl PartialEq for Segment {
-    fn eq(&self, other: &Self) -> bool {
-        self.uuid == other.uuid
-    }
-}
-
-impl Eq for Segment {}
 
 pub type Segments = Vec<Segment>;
 
@@ -124,10 +102,6 @@ pub fn get_segments(config: &Config, id: String) -> Option<Segments> {
     } else {
         Segment::get(config, id)
     }
-    .map(|mut segments| {
-        segments.sort();
-        segments
-    })
     .map_err(|e| {
         log::error!("Failed to get segments: {}.", e);
         e
