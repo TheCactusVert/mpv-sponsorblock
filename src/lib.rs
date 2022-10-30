@@ -68,11 +68,11 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
             }
             (REPL_NONE_NONE, Ok(Event::FileLoaded)) => {
                 log::trace!("Received file loaded event on reply {}.", REPL_NONE_NONE);
-                // Display On Screen
+                // On Screen Display instead of log
                 if let Some(c) = actions.get_video_category() {
                     log::info!("Video category: {}", c);
                 }
-                // Display On Screen
+                // On Screen Display instead of log
                 if let Some(p) = actions.get_video_poi() {
                     log::info!("Video POI at: {} s", p);
                 }
@@ -82,10 +82,10 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                 // Get new time position
                 if let Some(time_pos) = event.get_data::<f64>() {
                     if let Some(ref s) = actions.get_skip_segment(time_pos) {
-                        log::info!("Skipping segment [{}] to {}.", s.category, s.segment[1]);
+                        log::info!("Skipping {}.", s);
                         mpv_handle.set_property(NAME_PROP_TIME, s.segment[1]).unwrap();
                     } else if let Some(ref s) = actions.get_mute_segment(time_pos) {
-                        log::info!("Muting segment [{}] until {}.", s.category, s.segment[1]);
+                        log::info!("Muting {}.", s);
                         //mpv_handle.set_property().unwrap();
                     } else {
                         //log::info!("Unmuting video.");
@@ -97,6 +97,7 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
             }
             (REPL_PROP_MUTE, Ok(Event::PropertyChange(event))) => {
                 log::trace!("Received {} on reply {}.", event.get_name(), REPL_PROP_MUTE);
+                // Should do stuff
             }
             (REPL_HOOK_LOAD, Ok(Event::Hook(event))) => {
                 log::trace!("Received {} on reply {}.", event.get_name(), REPL_HOOK_LOAD);

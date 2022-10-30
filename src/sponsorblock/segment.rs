@@ -90,6 +90,16 @@ impl Segment {
     }
 }
 
+impl std::fmt::Display for Segment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "segment [{}] {} - {}",
+            self.category, self.segment[0], self.segment[1]
+        )
+    }
+}
+
 #[cached(
     type = "SizedCache<String, Segments>",
     create = "{ SizedCache::with_size(10) }",
