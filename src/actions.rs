@@ -19,9 +19,16 @@ impl Actions {
             .unwrap_or_default();
 
         self.skippable = segments.drain_filter(|s| s.action == Action::Skip).collect();
+        log::debug!("Found {} skippable segment(s).", self.skippable.len());
+
         self.mutable = segments.drain_filter(|s| s.action == Action::Mute).collect();
+        log::debug!("Found {} muttable segment(s).", self.mutable.len());
+
         self.poi = segments.drain_filter(|s| s.action == Action::Poi).next();
+        log::debug!("POI {}.", if self.poi.is_some() { "found" } else { "not found" });
+
         self.full = segments.drain_filter(|s| s.action == Action::Full).next();
+        log::debug!("Category {}.", if self.full.is_some() { "found" } else { "not found" });
     }
 
     pub fn get_skip_segment(&self, time_pos: f64) -> Option<&Segment> {

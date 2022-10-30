@@ -6,9 +6,9 @@ mod mpv;
 mod sponsorblock;
 mod utils;
 
-use crate::actions::Actions;
-use crate::config::Config;
-use crate::mpv::{Event, Format, Handle, RawHandle};
+use actions::Actions;
+use config::Config;
+use mpv::{Event, Format, Handle, RawHandle};
 
 use env_logger::Env;
 
@@ -66,12 +66,13 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                 // End plugin
                 return 0;
             }
-            (REPL_NONE_NONE, Ok(Event::StartFile(_event))) => {
-                log::trace!("Received start file event on reply {}.", REPL_NONE_NONE);
+            (REPL_NONE_NONE, Ok(Event::FileLoaded)) => {
+                log::trace!("Received file loaded event on reply {}.", REPL_NONE_NONE);
+                // Display On Screen
                 if let Some(c) = actions.get_video_category() {
                     log::info!("Video category: {}", c);
                 }
-
+                // Display On Screen
                 if let Some(p) = actions.get_video_poi() {
                     log::info!("Video POI at: {} s", p);
                 }
@@ -90,6 +91,8 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                         //log::info!("Unmuting video.");
                         //mpv_handle.set_property().unwrap();
                     }
+                } else {
+                    log::warn!("Received {} without data. Ignoring...", event.get_name());
                 }
             }
             (REPL_PROP_MUTE, Ok(Event::PropertyChange(event))) => {

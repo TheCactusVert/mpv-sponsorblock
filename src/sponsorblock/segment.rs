@@ -42,7 +42,7 @@ type Videos = Vec<Video>;
 
 impl Segment {
     fn get(config: &Config, id: String) -> Result<Segments> {
-        log::info!("Getting segments for video {}...", id);
+        log::debug!("Getting segments for video {}...", id);
 
         let buf = get_data(
             &format!(
@@ -60,7 +60,7 @@ impl Segment {
     }
 
     fn get_with_privacy(config: &Config, id: String) -> Result<Segments> {
-        log::info!("Getting segments for video {} with extra privacy...", id);
+        log::debug!("Getting segments for video {} with extra privacy...", id);
 
         let mut hasher = Sha256::new(); // create a Sha256 object
         hasher.update(&id); // write input message
