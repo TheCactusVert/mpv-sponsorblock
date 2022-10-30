@@ -82,9 +82,11 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                 // Get new time position
                 if let Some(time_pos) = event.get_data::<f64>() {
                     if let Some(ref s) = actions.get_skip_segment(time_pos) {
+                        // Skip segments are priority
                         log::info!("Skipping {}.", s);
                         mpv_handle.set_property(NAME_PROP_TIME, s.segment[1]).unwrap();
                     } else if let Some(ref s) = actions.get_mute_segment(time_pos) {
+                        // Mute when no skip segments
                         log::info!("Muting {}.", s);
                         //mpv_handle.set_property().unwrap();
                     } else {
@@ -97,7 +99,13 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
             }
             (REPL_PROP_MUTE, Ok(Event::PropertyChange(event))) => {
                 log::trace!("Received {} on reply {}.", event.get_name(), REPL_PROP_MUTE);
-                // Should do stuff
+                if let Some(mute) = event.get_data::<String>() {
+                    // TODO Should do stuff
+                    log::info!("Mute state: {}", mute);
+                } else {
+                    // Should be impossible
+                    log::warn!("Received {} without data. Ignoring...", event.get_name());
+                }
             }
             (REPL_HOOK_LOAD, Ok(Event::Hook(event))) => {
                 log::trace!("Received {} on reply {}.", event.get_name(), REPL_HOOK_LOAD);
