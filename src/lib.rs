@@ -75,10 +75,16 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
     loop {
         // Wait for MPV events indefinitely
         match mpv_handle.wait_event(-1.) {
-            (REPL_NONE_NONE, Ok(Event::Shutdown)) => {
-                log::trace!("Received shutdown event on reply {}.", REPL_NONE_NONE);
-                // End plugin
-                return 0;
+            (REPL_HOOK_LOAD, Ok(Event::Hook(event))) => {
+                log::trace!("Received {} on reply {}.", event.get_name(), REPL_HOOK_LOAD);
+                // Get video path
+                let path: String = mpv_handle.get_property(NAME_PROP_PATH).unwrap();
+                // Blocking operation
+                // Non blocking operation might be better, but risky on short videos ?!
+                actions.load_chapters(&path, &config);
+                actions.reset_muted();
+                // Unblock MPV and continue
+                mpv_handle.hook_continue(event.get_id()).unwrap();
             }
             (REPL_NONE_NONE, Ok(Event::FileLoaded)) => {
                 log::trace!("Received file loaded event on reply {}.", REPL_NONE_NONE);
@@ -89,15 +95,6 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                         c
                     );
                     mpv_handle.osd_message(message, Duration::from_secs(10)).unwrap();
-                }
-            }
-            (REPL_NONE_NONE, Ok(Event::EndFile)) => {
-                log::trace!("Received end file event on reply {}.", REPL_NONE_NONE);
-                // Reset volume when file end to avoid starting next file with volume at 0
-                if Volume::Default != actions.get_volume_source() {
-                    log::info!("Unmuting video.");
-                    actions.reset_muted();
-                    mpv_handle.set_property(NAME_PROP_VOLU, actions.get_volume()).unwrap();
                 }
             }
             (REPL_PROP_TIME, Ok(Event::PropertyChange(event))) => {
@@ -138,16 +135,19 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                     log::warn!("Received {} without data. Ignoring...", event.get_name());
                 }
             }
-            (REPL_HOOK_LOAD, Ok(Event::Hook(event))) => {
-                log::trace!("Received {} on reply {}.", event.get_name(), REPL_HOOK_LOAD);
-                // Get video path
-                let path: String = mpv_handle.get_property(NAME_PROP_PATH).unwrap();
-                // Blocking operation
-                // Non blocking operation might be better, but risky on short videos ?!
-                actions.load_chapters(&path, &config);
-                actions.reset_muted();
-                // Unblock MPV and continue
-                mpv_handle.hook_continue(event.get_id()).unwrap();
+            (REPL_NONE_NONE, Ok(Event::EndFile)) => {
+                log::trace!("Received end file event on reply {}.", REPL_NONE_NONE);
+                // Reset volume when file end to avoid starting next file with volume at 0
+                if Volume::Default != actions.get_volume_source() {
+                    log::info!("Unmuting video.");
+                    actions.reset_muted();
+                    mpv_handle.set_property(NAME_PROP_VOLU, actions.get_volume()).unwrap();
+                }
+            }
+            (REPL_NONE_NONE, Ok(Event::Shutdown)) => {
+                log::trace!("Received shutdown event on reply {}.", REPL_NONE_NONE);
+                // End plugin
+                return 0;
             }
             (reply, Ok(event)) => {
                 log::trace!("Ignoring {} event on reply {}.", event, reply);
