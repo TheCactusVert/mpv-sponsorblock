@@ -420,7 +420,8 @@ checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
 [[package]]
 name = "mpv-client"
 version = "0.1.0"
-source = "git+https://github.com/TheCactusVert/mpv-client.git#f107e6007722e6734d4dd060c255abf12d36d842"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd043f61032c120e70831fbcf49063032d17663b639a4f49faedcd7983d30dcd"
 
 [[package]]
 name = "mpv-sponsorblock"
