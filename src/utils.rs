@@ -3,7 +3,7 @@ use std::time::Duration;
 use curl::easy::Easy;
 use regex::Regex;
 
-pub fn get_data(url: &str, timeout: Duration) -> Result<Vec<u8>, curl::Error> {
+pub fn fetch_data(url: &str, timeout: Duration) -> Result<Vec<u8>, curl::Error> {
     let mut buf = Vec::new();
     let mut handle = Easy::new();
 

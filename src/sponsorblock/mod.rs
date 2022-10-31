@@ -15,13 +15,13 @@ use cached::SizedCache;
     convert = r#"{ id.clone() }"#,
     option = true
 )]
-pub fn get_segments(config: &Config, id: String) -> Option<Segments> {
+pub fn fetch_segments(config: &Config, id: String) -> Option<Segments> {
     if config.privacy_api {
         log::debug!("Getting segments for video {} with extra privacy...", id);
-        Segment::get_with_privacy(config, id)
+        Segment::fetch_with_privacy(config, id)
     } else {
         log::debug!("Getting segments for video {}...", id);
-        Segment::get(config, id)
+        Segment::fetch(config, id)
     }
     .map_err(|e| {
         log::error!("Failed to get segments: {}.", e);

@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::utils::get_data;
+use crate::utils::fetch_data;
 
 use super::action::Action;
 use super::category::Category;
@@ -39,8 +39,8 @@ struct Video {
 type Videos = Vec<Video>;
 
 impl Segment {
-    pub(super) fn get(config: &Config, id: String) -> Result<Segments> {
-        let buf = get_data(
+    pub(super) fn fetch(config: &Config, id: String) -> Result<Segments> {
+        let buf = fetch_data(
             &format!(
                 "{}/api/skipSegments?videoID={}&{}",
                 config.server_address,
@@ -55,12 +55,12 @@ impl Segment {
         Ok(segments)
     }
 
-    pub(super) fn get_with_privacy(config: &Config, id: String) -> Result<Segments> {
+    pub(super) fn fetch_with_privacy(config: &Config, id: String) -> Result<Segments> {
         let mut hasher = Sha256::new(); // create a Sha256 object
         hasher.update(&id); // write input message
         let hash = hasher.finalize(); // read hash digest and consume hasher
 
-        let buf = get_data(
+        let buf = fetch_data(
             &format!(
                 "{}/api/skipSegments/{:.4}?{}",
                 config.server_address,

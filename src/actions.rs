@@ -1,7 +1,7 @@
 use crate::config::Config;
+use crate::sponsorblock;
 use crate::sponsorblock::action::Action;
 use crate::sponsorblock::category::Category;
-use crate::sponsorblock::get_segments;
 use crate::sponsorblock::segment::{Segment, Segments};
 use crate::utils::get_youtube_id;
 
@@ -32,8 +32,11 @@ pub struct Actions {
 impl Actions {
     pub fn load_chapters(&mut self, path: &str, config: &Config) {
         let mut segments = get_youtube_id(path)
-            .and_then(|id| get_segments(config, id))
+            .and_then(|id| sponsorblock::fetch_segments(config, id))
             .unwrap_or_default();
+
+        // The sgments will be searched multiple times by seconds.
+        // It's more efficient to split them before.
 
         self.skippable = segments.drain_filter(|s| s.action == Action::Skip).collect();
         log::debug!("Found {} skippable segment(s).", self.skippable.len());
