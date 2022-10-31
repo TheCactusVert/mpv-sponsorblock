@@ -8,9 +8,13 @@ mod utils;
 
 use actions::{Actions, Volume, MUTE_VOLUME};
 use config::Config;
-use mpv::{Event, Format, Handle, RawHandle};
+use mpv::{Event, Format, Handle, RawHandle, Result};
+
+use std::time::Duration;
 
 use env_logger::Env;
+
+static CMD_SHOW_TEXT: &str = "show-text";
 
 static NAME_PROP_PATH: &str = "path";
 static NAME_PROP_TIME: &str = "time-pos";
@@ -23,6 +27,14 @@ const REPL_PROP_VOLU: u64 = 2;
 const REPL_HOOK_LOAD: u64 = 3;
 
 const PRIO_HOOK_NONE: i32 = 0;
+
+// Helpers
+impl Handle {
+    fn osd_message(&self, text: String, duration: Duration) -> Result<()> {
+        // Display text for a certain duration
+        self.command(vec![CMD_SHOW_TEXT.to_string(), text, duration.as_millis().to_string()])
+    }
+}
 
 // MPV entry point
 #[no_mangle]
@@ -68,13 +80,20 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
             }
             (REPL_NONE_NONE, Ok(Event::FileLoaded)) => {
                 log::trace!("Received file loaded event on reply {}.", REPL_NONE_NONE);
-                // TODO On Screen Display instead of log
+                let mut messages: Vec<String> = Vec::new();
                 if let Some(c) = actions.get_video_category() {
-                    log::info!("Video category: {}", c);
+                    messages.push(format!(
+                        "This entire video is labeled as {} and is too tightly integrated to be able to separate.",
+                        c
+                    ));
                 }
-                // TODO On Screen Display instead of log
                 if let Some(p) = actions.get_video_poi() {
-                    log::info!("Video highlight at: {} s", p);
+                    messages.push(format!("Video highlight at {} s", p));
+                }
+                if !messages.is_empty() {
+                    mpv_handle
+                        .osd_message(messages.join("\n"), Duration::from_secs(12))
+                        .unwrap();
                 }
             }
             (REPL_NONE_NONE, Ok(Event::EndFile)) => {

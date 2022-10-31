@@ -165,6 +165,18 @@ impl Handle {
         c_str.to_str().unwrap_or("unknown")
     }
 
+    pub fn command(&self, args: Vec<String>) -> Result<()> {
+        let c_args = args
+            .iter()
+            .map(|s| CString::new::<String>(s.into()).unwrap()) // Dangerous
+            .collect::<Vec<CString>>();
+        let mut raw_args = c_args.iter().map(|s| s.as_ptr()).collect::<Vec<_>>();
+        raw_args.push(std::ptr::null::<i8>()); // Adding null at the end
+        raw_args.shrink_to_fit();
+
+        mpv_result!(mpv_command(self.0, raw_args.as_ptr()))
+    }
+
     /// This is garbage
     pub fn set_property<T: 'static + Format, S: Into<String>>(&self, name: S, mut data: T) -> Result<()> {
         let c_name = CString::new(name.into())?;
