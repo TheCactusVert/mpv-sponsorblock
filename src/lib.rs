@@ -59,12 +59,12 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
 
     // Subscribe to property time-pos
     mpv_handle
-        .observe_property(REPL_PROP_TIME, NAME_PROP_TIME, f64::get_format())
+        .observe_property(REPL_PROP_TIME, NAME_PROP_TIME, f64::FORMAT)
         .unwrap();
 
     // Subscribe to property volume (is mute deprecated ?)
     mpv_handle
-        .observe_property(REPL_PROP_VOLU, NAME_PROP_VOLU, f64::get_format())
+        .observe_property(REPL_PROP_VOLU, NAME_PROP_VOLU, f64::FORMAT)
         .unwrap();
 
     // Add hook on file load

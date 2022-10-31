@@ -141,12 +141,12 @@ impl Handle {
 
     pub fn set_property<T: Format>(&self, name: &str, data: T) -> Result<()> {
         let name = CString::new(name)?;
-        data.to_mpv(|data| mpv_result!(mpv_set_property(self.0, name.as_ptr(), T::get_format(), data)))
+        data.to_mpv(|data| mpv_result!(mpv_set_property(self.0, name.as_ptr(), T::FORMAT, data)))
     }
 
     pub fn get_property<T: Format>(&self, name: &str) -> Result<T> {
         let name = CString::new(name)?;
-        T::from_mpv(|data| mpv_result!(mpv_get_property(self.0, name.as_ptr(), T::get_format(), data)))
+        T::from_mpv(|data| mpv_result!(mpv_get_property(self.0, name.as_ptr(), T::FORMAT, data)))
     }
 
     pub fn observe_property(&self, reply_userdata: u64, name: &str, format: mpv_format) -> Result<()> {
@@ -187,7 +187,7 @@ impl EventProperty {
 
     pub fn get_data<T: Format>(&self) -> Option<T> {
         unsafe {
-            if (*self.0).format == T::get_format() {
+            if (*self.0).format == T::FORMAT {
                 T::from_raw((*self.0).data).ok()
             } else {
                 None
