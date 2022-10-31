@@ -16,16 +16,20 @@ use cached::SizedCache;
     option = true
 )]
 pub fn fetch_segments(config: &Config, id: String) -> Option<Segments> {
-    if config.privacy_api {
+    match if config.privacy_api {
         log::debug!("Getting segments for video {} with extra privacy...", id);
         Segment::fetch_with_privacy(config, id)
     } else {
         log::debug!("Getting segments for video {}...", id);
         Segment::fetch(config, id)
+    } {
+        Ok(v) => {
+            log::info!("Found {} segment(s).", v.len());
+            Some(v)
+        }
+        Err(e) => {
+            log::error!("Failed to get segments: {}.", e);
+            None
+        }
     }
-    .map_err(|e| {
-        log::error!("Failed to get segments: {}.", e);
-        e
-    })
-    .ok()
 }
