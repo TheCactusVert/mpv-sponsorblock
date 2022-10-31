@@ -82,20 +82,13 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
             }
             (REPL_NONE_NONE, Ok(Event::FileLoaded)) => {
                 log::trace!("Received file loaded event on reply {}.", REPL_NONE_NONE);
-                let mut messages: Vec<String> = Vec::new();
+                // Display the category of the video at start
                 if let Some(c) = actions.get_video_category() {
-                    messages.push(format!(
+                    let message = format!(
                         "This entire video is labeled as {} and is too tightly integrated to be able to separate.",
                         c
-                    ));
-                }
-                if let Some(p) = actions.get_video_poi() {
-                    messages.push(format!("Video highlight at {} s", p));
-                }
-                if !messages.is_empty() {
-                    mpv_handle
-                        .osd_message(messages.join("\n"), Duration::from_secs(12))
-                        .unwrap();
+                    );
+                    mpv_handle.osd_message(message, Duration::from_secs(10)).unwrap();
                 }
             }
             (REPL_NONE_NONE, Ok(Event::EndFile)) => {
