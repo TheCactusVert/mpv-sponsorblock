@@ -418,8 +418,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
 
 [[package]]
+name = "mpv-client"
+version = "0.1.0"
+source = "git+https://github.com/TheCactusVert/mpv-client.git#f107e6007722e6734d4dd060c255abf12d36d842"
+
+[[package]]
 name = "mpv-sponsorblock"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "anyhow",
  "cached",
@@ -428,6 +433,7 @@ dependencies = [
  "env_logger",
  "hex",
  "log",
+ "mpv-client",
  "regex",
  "serde",
  "serde_derive",

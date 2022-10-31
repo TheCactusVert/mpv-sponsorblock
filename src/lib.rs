@@ -2,20 +2,16 @@
 
 mod actions;
 mod config;
-mod mpv;
 mod sponsorblock;
 mod utils;
 
 use actions::{Actions, Volume, MUTE_VOLUME};
 use config::Config;
-use mpv::error::Result;
-use mpv::{Event, Handle, RawHandle};
+use mpv_client::{Event, Handle, RawHandle};
 
 use std::time::Duration;
 
 use env_logger::Env;
-
-static CMD_SHOW_TEXT: &str = "show-text";
 
 static NAME_PROP_PATH: &str = "path";
 static NAME_PROP_TIME: &str = "time-pos";
@@ -28,14 +24,6 @@ const REPL_PROP_VOLU: u64 = 2;
 const REPL_HOOK_LOAD: u64 = 3;
 
 const PRIO_HOOK_NONE: i32 = 0;
-
-// Helpers
-impl Handle {
-    fn osd_message(&self, text: String, duration: Duration) -> Result<()> {
-        // Display text for a certain duration
-        self.command(&[CMD_SHOW_TEXT.to_string(), text, duration.as_millis().to_string()])
-    }
-}
 
 // MPV entry point
 #[no_mangle]
