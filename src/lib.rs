@@ -8,7 +8,8 @@ mod utils;
 
 use actions::{Actions, Volume, MUTE_VOLUME};
 use config::Config;
-use mpv::{Event, Format, Handle, RawHandle, Result};
+use mpv::format::Format;
+use mpv::{Event, Handle, RawHandle, Result};
 
 use std::time::Duration;
 
