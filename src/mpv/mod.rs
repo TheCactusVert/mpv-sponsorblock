@@ -126,8 +126,9 @@ impl Handle {
     }
 
     pub fn client_name(&self) -> &str {
-        let c_str = unsafe { CStr::from_ptr(mpv_client_name(self.0)) };
-        c_str.to_str().unwrap_or("unknown")
+        unsafe { CStr::from_ptr(mpv_client_name(self.0)) }
+            .to_str()
+            .unwrap_or("unknown")
     }
 
     pub fn command(&self, args: Vec<String>) -> Result<()> {
@@ -137,16 +138,19 @@ impl Handle {
             .collect::<Vec<CString>>();
         let mut raw_args = c_args.iter().map(|s| s.as_ptr()).collect::<Vec<_>>();
         raw_args.push(std::ptr::null::<i8>()); // Adding null at the end
-        raw_args.shrink_to_fit();
 
         mpv_result!(mpv_command(self.0, raw_args.as_ptr()))
     }
 
     /// This is garbage
     pub fn set_property<T: 'static + Format, S: Into<String>>(&self, name: S, mut data: T) -> Result<()> {
-        let c_name = CString::new(name.into())?;
         let p_data: *mut c_void = &mut data as *mut _ as *mut c_void;
-        mpv_result!(mpv_set_property(self.0, c_name.as_ptr(), T::get_format(), p_data))
+        mpv_result!(mpv_set_property(
+            self.0,
+            CString::new(name.into())?.as_ptr(),
+            T::get_format(),
+            p_data
+        ))
     }
 
     /// This is garbage
@@ -177,13 +181,21 @@ impl Handle {
     }
 
     pub fn observe_property<S: Into<String>>(&self, reply_userdata: u64, name: S, format: mpv_format) -> Result<()> {
-        let c_name = CString::new(name.into())?;
-        mpv_result!(mpv_observe_property(self.0, reply_userdata, c_name.as_ptr(), format))
+        mpv_result!(mpv_observe_property(
+            self.0,
+            reply_userdata,
+            CString::new(name.into())?.as_ptr(),
+            format
+        ))
     }
 
     pub fn hook_add<S: Into<String>>(&self, reply_userdata: u64, name: S, priority: i32) -> Result<()> {
-        let c_name = CString::new(name.into())?;
-        mpv_result!(mpv_hook_add(self.0, reply_userdata, c_name.as_ptr(), priority))
+        mpv_result!(mpv_hook_add(
+            self.0,
+            reply_userdata,
+            CString::new(name.into())?.as_ptr(),
+            priority
+        ))
     }
 
     pub fn hook_continue(&self, id: u64) -> Result<()> {
@@ -209,8 +221,7 @@ impl EventProperty {
     }
 
     pub fn get_name(&self) -> &str {
-        let c_str = unsafe { CStr::from_ptr((*self.0).name) };
-        c_str.to_str().unwrap_or("unknown")
+        unsafe { CStr::from_ptr((*self.0).name) }.to_str().unwrap_or("unknown")
     }
 
     pub fn get_data<T: Format>(&self) -> Option<T> {
@@ -231,8 +242,7 @@ impl EventHook {
     }
 
     pub fn get_name(&self) -> &str {
-        let c_str = unsafe { CStr::from_ptr((*self.0).name) };
-        c_str.to_str().unwrap_or("unknown")
+        unsafe { CStr::from_ptr((*self.0).name) }.to_str().unwrap_or("unknown")
     }
 
     pub fn get_id(&self) -> u64 {
