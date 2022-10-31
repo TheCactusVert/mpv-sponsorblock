@@ -9,7 +9,6 @@ mod utils;
 use actions::{Actions, Volume, MUTE_VOLUME};
 use config::Config;
 use mpv::error::Result;
-use mpv::format::Format;
 use mpv::{Event, Handle, RawHandle};
 
 use std::time::Duration;
@@ -59,12 +58,12 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
 
     // Subscribe to property time-pos
     mpv_handle
-        .observe_property(REPL_PROP_TIME, NAME_PROP_TIME, f64::FORMAT)
+        .observe_property::<f64>(REPL_PROP_TIME, NAME_PROP_TIME)
         .unwrap();
 
     // Subscribe to property volume (is mute deprecated ?)
     mpv_handle
-        .observe_property(REPL_PROP_VOLU, NAME_PROP_VOLU, f64::FORMAT)
+        .observe_property::<f64>(REPL_PROP_VOLU, NAME_PROP_VOLU)
         .unwrap();
 
     // Add hook on file load

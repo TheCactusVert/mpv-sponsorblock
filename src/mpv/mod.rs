@@ -78,6 +78,7 @@ impl Handle {
         Self(handle)
     }
 
+    // TODO rewrite this crap
     pub fn wait_event(&self, timeout: f64) -> (u64, Result<Event>) {
         unsafe {
             let mpv_event = mpv_wait_event(self.0, timeout);
@@ -129,6 +130,7 @@ impl Handle {
             .unwrap_or("unknown")
     }
 
+    // TODO clean the ecode
     pub fn command(&self, args: &[String]) -> Result<()> {
         let c_args = args
             .iter()
@@ -149,9 +151,9 @@ impl Handle {
         T::from_mpv(|data| mpv_result!(mpv_get_property(self.0, name.as_ptr(), T::FORMAT, data)))
     }
 
-    pub fn observe_property(&self, reply_userdata: u64, name: &str, format: mpv_format) -> Result<()> {
+    pub fn observe_property<T: Format>(&self, reply_userdata: u64, name: &str) -> Result<()> {
         let name = CString::new(name)?;
-        mpv_result!(mpv_observe_property(self.0, reply_userdata, name.as_ptr(), format))
+        mpv_result!(mpv_observe_property(self.0, reply_userdata, name.as_ptr(), T::FORMAT))
     }
 
     pub fn hook_add(&self, reply_userdata: u64, name: &str, priority: i32) -> Result<()> {
@@ -185,6 +187,7 @@ impl EventProperty {
         unsafe { CStr::from_ptr((*self.0).name) }.to_str().unwrap_or("unknown")
     }
 
+    // TODO I don't like it
     pub fn get_data<T: Format>(&self) -> Option<T> {
         unsafe {
             if (*self.0).format == T::FORMAT {
