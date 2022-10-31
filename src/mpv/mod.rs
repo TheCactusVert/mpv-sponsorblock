@@ -1,12 +1,12 @@
-mod error;
+pub mod error;
 mod ffi;
 pub mod format;
 
-use error::Error;
+use error::{Error, Result};
 use ffi::*;
 use format::Format;
 
-use std::ffi::{c_void, CStr, CString};
+use std::ffi::{CStr, CString};
 use std::fmt;
 
 pub type RawHandle = *mut mpv_handle;
@@ -16,8 +16,6 @@ pub struct Handle(*mut mpv_handle);
 pub struct EventStartFile(*mut mpv_event_start_file);
 pub struct EventProperty(*mut mpv_event_property);
 pub struct EventHook(*mut mpv_event_hook);
-
-pub type Result<T> = std::result::Result<T, Error>;
 
 macro_rules! mpv_result {
     ($f:expr) => {
@@ -131,71 +129,34 @@ impl Handle {
             .unwrap_or("unknown")
     }
 
-    pub fn command(&self, args: Vec<String>) -> Result<()> {
+    pub fn command(&self, args: &[String]) -> Result<()> {
         let c_args = args
             .iter()
-            .map(|s| CString::new::<String>(s.into()).unwrap()) // Dangerous
+            .map(|s| CString::new::<String>(s.into()).unwrap())
             .collect::<Vec<CString>>();
         let mut raw_args = c_args.iter().map(|s| s.as_ptr()).collect::<Vec<_>>();
         raw_args.push(std::ptr::null::<i8>()); // Adding null at the end
-
         mpv_result!(mpv_command(self.0, raw_args.as_ptr()))
     }
 
-    /// This is garbage
-    pub fn set_property<T: 'static + Format, S: Into<String>>(&self, name: S, mut data: T) -> Result<()> {
-        let p_data: *mut c_void = &mut data as *mut _ as *mut c_void;
-        mpv_result!(mpv_set_property(
-            self.0,
-            CString::new(name.into())?.as_ptr(),
-            T::get_format(),
-            p_data
-        ))
+    pub fn set_property<T: Format>(&self, name: &str, data: T) -> Result<()> {
+        let name = CString::new(name)?;
+        data.to_mpv(|data| mpv_result!(mpv_set_property(self.0, name.as_ptr(), T::get_format(), data)))
     }
 
-    /// This is garbage
-    /*pub fn get_property<T: 'static + Format + Default, S: Into<String>>(&self, name: S) -> Result<T> {
-        let c_name = CString::new(name.into())?;
-        let data = T::default();
-        let p_data: data.;
-        assert!(p_data.is_null());
-        mpv_result!(mpv_get_property(self.0, c_name.as_ptr(), T::get_format(), p_data))?;
-        T::from_raw(p_data).ok_or(Error::new(mpv_error::GENERIC))
-    }*/
-
-    /// This is garbage
-    pub fn get_property_string<S: Into<String>>(&self, name: S) -> Result<String> {
-        let c_name = CString::new(name.into())?;
-
-        unsafe {
-            let c_path = mpv_get_property_string(self.0, c_name.as_ptr());
-            if c_path.is_null() {
-                return Err(Error::new(mpv_error::PROPERTY_NOT_FOUND));
-            }
-
-            let c_str = CStr::from_ptr(c_path);
-            let str_buf = c_str.to_str().map(|s| s.to_owned());
-            mpv_free(c_path as *mut c_void);
-            Ok(str_buf?) // Meh it shouldn't fail
-        }
+    pub fn get_property<T: Format>(&self, name: &str) -> Result<T> {
+        let name = CString::new(name)?;
+        T::from_mpv(|data| mpv_result!(mpv_get_property(self.0, name.as_ptr(), T::get_format(), data)))
     }
 
-    pub fn observe_property<S: Into<String>>(&self, reply_userdata: u64, name: S, format: mpv_format) -> Result<()> {
-        mpv_result!(mpv_observe_property(
-            self.0,
-            reply_userdata,
-            CString::new(name.into())?.as_ptr(),
-            format
-        ))
+    pub fn observe_property(&self, reply_userdata: u64, name: &str, format: mpv_format) -> Result<()> {
+        let name = CString::new(name)?;
+        mpv_result!(mpv_observe_property(self.0, reply_userdata, name.as_ptr(), format))
     }
 
-    pub fn hook_add<S: Into<String>>(&self, reply_userdata: u64, name: S, priority: i32) -> Result<()> {
-        mpv_result!(mpv_hook_add(
-            self.0,
-            reply_userdata,
-            CString::new(name.into())?.as_ptr(),
-            priority
-        ))
+    pub fn hook_add(&self, reply_userdata: u64, name: &str, priority: i32) -> Result<()> {
+        let name = CString::new(name)?;
+        mpv_result!(mpv_hook_add(self.0, reply_userdata, name.as_ptr(), priority))
     }
 
     pub fn hook_continue(&self, id: u64) -> Result<()> {
@@ -227,7 +188,7 @@ impl EventProperty {
     pub fn get_data<T: Format>(&self) -> Option<T> {
         unsafe {
             if (*self.0).format == T::get_format() {
-                T::from_raw((*self.0).data)
+                T::from_raw((*self.0).data).ok()
             } else {
                 None
             }

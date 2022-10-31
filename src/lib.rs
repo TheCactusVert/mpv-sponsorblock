@@ -8,8 +8,9 @@ mod utils;
 
 use actions::{Actions, Volume, MUTE_VOLUME};
 use config::Config;
+use mpv::error::Result;
 use mpv::format::Format;
-use mpv::{Event, Handle, RawHandle, Result};
+use mpv::{Event, Handle, RawHandle};
 
 use std::time::Duration;
 
@@ -33,7 +34,7 @@ const PRIO_HOOK_NONE: i32 = 0;
 impl Handle {
     fn osd_message(&self, text: String, duration: Duration) -> Result<()> {
         // Display text for a certain duration
-        self.command(vec![CMD_SHOW_TEXT.to_string(), text, duration.as_millis().to_string()])
+        self.command(&[CMD_SHOW_TEXT.to_string(), text, duration.as_millis().to_string()])
     }
 }
 
@@ -147,7 +148,7 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
             (REPL_HOOK_LOAD, Ok(Event::Hook(event))) => {
                 log::trace!("Received {} on reply {}.", event.get_name(), REPL_HOOK_LOAD);
                 // Get video path
-                let path = mpv_handle.get_property_string(NAME_PROP_PATH).unwrap();
+                let path: String = mpv_handle.get_property(NAME_PROP_PATH).unwrap();
                 // Blocking operation
                 // Non blocking operation might be better, but risky on short videos ?!
                 actions.load_chapters(&path, &config);

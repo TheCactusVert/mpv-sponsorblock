@@ -6,6 +6,7 @@ use std::str::Utf8Error;
 
 #[derive(Debug)]
 pub struct Error(mpv_error);
+pub type Result<T> = std::result::Result<T, Error>;
 
 impl Error {
     pub fn new(error: mpv_error) -> Self {
