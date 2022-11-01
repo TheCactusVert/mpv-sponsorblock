@@ -62,8 +62,8 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
     loop {
         // Wait for MPV events indefinitely
         match mpv_handle.wait_event(-1.) {
-            (REPL_HOOK_LOAD, Ok(Event::Hook(event))) => {
-                log::trace!("Received {} on reply {}.", event.get_name(), REPL_HOOK_LOAD);
+            (REPL_HOOK_LOAD, Ok(Event::Hook(data))) => {
+                log::trace!("Received {} on reply {}.", data.name(), REPL_HOOK_LOAD);
                 // Get video path
                 let path: String = mpv_handle.get_property(NAME_PROP_PATH).unwrap();
                 // Blocking operation
@@ -71,7 +71,7 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                 actions.load_chapters(&path, &config);
                 actions.reset_muted();
                 // Unblock MPV and continue
-                mpv_handle.hook_continue(event.get_id()).unwrap();
+                mpv_handle.hook_continue(data.id()).unwrap();
             }
             (REPL_NONE_NONE, Ok(Event::FileLoaded)) => {
                 log::trace!("Received file loaded event on reply {}.", REPL_NONE_NONE);
@@ -84,10 +84,10 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                     mpv_handle.osd_message(message, Duration::from_secs(10)).unwrap();
                 }
             }
-            (REPL_PROP_TIME, Ok(Event::PropertyChange(event))) => {
-                log::trace!("Received {} on reply {}.", event.get_name(), REPL_PROP_TIME);
+            (REPL_PROP_TIME, Ok(Event::PropertyChange(data))) => {
+                log::trace!("Received {} on reply {}.", data.name(), REPL_PROP_TIME);
                 // Get new time position
-                if let Some(time_pos) = event.get_data::<f64>() {
+                if let Some(time_pos) = data.data::<f64>() {
                     if let Some(ref s) = actions.get_skip_segment(time_pos) {
                         // Skip segments are priority
                         log::info!("Skipping {}.", s);
@@ -108,18 +108,18 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                         }
                     }
                 } else {
-                    log::warn!("Received {} without data. Ignoring...", event.get_name());
+                    log::warn!("Received {} without data. Ignoring...", data.name());
                 }
             }
-            (REPL_PROP_VOLU, Ok(Event::PropertyChange(event))) => {
-                log::trace!("Received {} on reply {}.", event.get_name(), REPL_PROP_VOLU);
+            (REPL_PROP_VOLU, Ok(Event::PropertyChange(data))) => {
+                log::trace!("Received {} on reply {}.", data.name(), REPL_PROP_VOLU);
                 // Get the new volume
-                if let Some(volume) = event.get_data::<f64>() {
+                if let Some(volume) = data.data::<f64>() {
                     // Save the volume
                     actions.set_volume(volume);
                 } else {
                     // Should be impossible
-                    log::warn!("Received {} without data. Ignoring...", event.get_name());
+                    log::warn!("Received {} without data. Ignoring...", data.name());
                 }
             }
             (REPL_NONE_NONE, Ok(Event::EndFile)) => {
@@ -136,8 +136,8 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                 // End plugin
                 return 0;
             }
-            (reply, Ok(event)) => {
-                log::trace!("Ignoring {} event on reply {}.", event, reply);
+            (reply, Ok(data)) => {
+                log::trace!("Ignoring {} event on reply {}.", data, reply);
             }
             (reply, Err(e)) => {
                 log::error!("Asynchronous call failed: {} on reply {}.", e, reply);
