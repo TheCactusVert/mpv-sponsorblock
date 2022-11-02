@@ -6,7 +6,6 @@ mod sponsorblock;
 mod utils;
 
 use actions::{Actions, Volume, MUTE_VOLUME};
-use config::Config;
 use mpv_client::{Event, Handle, RawHandle};
 
 use std::time::Duration;
@@ -29,7 +28,9 @@ const PRIO_HOOK_NONE: i32 = 0;
 #[no_mangle]
 extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
     // TODO Maybe use MPV logger ?
-    let env = Env::new().filter("MPV_SB_LOG").write_style("MPV_SB_LOG_STYLE");
+    let env = Env::new()
+        .filter("MPV_SPONSORBLOCK_LOG")
+        .write_style("MPV_SPONSORBLOCK_LOG_STYLE");
     env_logger::init_from_env(env);
 
     // Wrap handle
@@ -38,11 +39,8 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
     // Show that the plugin has started
     log::debug!("Starting plugin SponsorBlock [{}]!", mpv_handle.client_name());
 
-    // Load config file
-    let config = Config::get();
-
     // Create actions handler
-    let mut actions = Actions::default();
+    let mut actions = Actions::new();
 
     // Subscribe to property time-pos
     mpv_handle
@@ -68,13 +66,13 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                 let path: String = mpv_handle.get_property(NAME_PROP_PATH).unwrap();
                 // Blocking operation
                 // Non blocking operation might be better, but risky on short videos ?!
-                actions.load_chapters(&path, &config);
+                actions.load_chapters(&path);
                 actions.reset_muted();
                 // Unblock MPV and continue
                 mpv_handle.hook_continue(data.id()).unwrap();
             }
             (REPL_NONE_NONE, Ok(Event::FileLoaded)) => {
-                log::trace!("Received file loaded event on reply {}.", REPL_NONE_NONE);
+                log::trace!("Received file-loaded event on reply {}.", REPL_NONE_NONE);
                 // Display the category of the video at start
                 if let Some(c) = actions.get_video_category() {
                     let message = format!(
@@ -123,7 +121,7 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                 }
             }
             (REPL_NONE_NONE, Ok(Event::EndFile)) => {
-                log::trace!("Received end file event on reply {}.", REPL_NONE_NONE);
+                log::trace!("Received end-file event on reply {}.", REPL_NONE_NONE);
                 // Reset volume when file end to avoid starting next file with volume at 0
                 if Volume::Default != actions.get_volume_source() {
                     log::info!("Unmuting video.");
@@ -136,8 +134,8 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                 // End plugin
                 return 0;
             }
-            (reply, Ok(data)) => {
-                log::trace!("Ignoring {} event on reply {}.", data, reply);
+            (reply, Ok(event)) => {
+                log::trace!("Ignoring {} event on reply {}.", event, reply);
             }
             (reply, Err(e)) => {
                 log::error!("Asynchronous call failed: {} on reply {}.", e, reply);

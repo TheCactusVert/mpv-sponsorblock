@@ -20,8 +20,9 @@ impl Default for Volume {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Actions {
+    config: Config,
     skippable: Segments,
     mutable: Segments,
     poi: Option<Segment>,
@@ -30,9 +31,20 @@ pub struct Actions {
 }
 
 impl Actions {
-    pub fn load_chapters(&mut self, path: &str, config: &Config) {
+    pub fn new() -> Self {
+        Actions {
+            config: Config::get(),
+            skippable: Vec::new(),
+            mutable: Vec::new(),
+            poi: None,
+            full: None,
+            volume: (0., Volume::Default),
+        }
+    }
+
+    pub fn load_chapters(&mut self, path: &str) {
         let mut segments = get_youtube_id(path)
-            .and_then(|id| sponsorblock::fetch_segments(config, id))
+            .and_then(|id| sponsorblock::fetch_segments(&self.config, id))
             .unwrap_or_default();
 
         // The sgments will be searched multiple times by seconds.
