@@ -42,8 +42,8 @@ impl Actions {
         }
     }
 
-    pub fn load_chapters(&mut self, path: &str) {
-        let mut segments = get_youtube_id(path)
+    pub fn load_chapters<S: AsRef<str>>(&mut self, path: S) {
+        let mut segments = get_youtube_id(path.as_ref())
             .and_then(|id| sponsorblock::fetch_segments(&self.config, id))
             .unwrap_or_default();
 

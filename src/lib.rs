@@ -17,7 +17,6 @@ static NAME_PROP_TIME: &str = "time-pos";
 static NAME_PROP_VOLU: &str = "volume";
 static NAME_HOOK_LOAD: &str = "on_load";
 
-const REPL_NONE_NONE: u64 = 0;
 const REPL_PROP_TIME: u64 = 1;
 const REPL_PROP_VOLU: u64 = 2;
 const REPL_HOOK_LOAD: u64 = 3;
@@ -60,19 +59,19 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
     loop {
         // Wait for MPV events indefinitely
         match mpv_handle.wait_event(-1.) {
-            (REPL_HOOK_LOAD, Ok(Event::Hook(data))) => {
-                log::trace!("Received {} on reply {}.", data.name(), REPL_HOOK_LOAD);
+            Event::Hook(REPL_HOOK_LOAD, data) => {
+                log::trace!("Received {}.", data.name());
                 // Get video path
                 let path: String = mpv_handle.get_property(NAME_PROP_PATH).unwrap();
                 // Blocking operation
                 // Non blocking operation might be better, but risky on short videos ?!
-                actions.load_chapters(&path);
+                actions.load_chapters(path);
                 actions.reset_muted();
                 // Unblock MPV and continue
                 mpv_handle.hook_continue(data.id()).unwrap();
             }
-            (REPL_NONE_NONE, Ok(Event::FileLoaded)) => {
-                log::trace!("Received file-loaded event on reply {}.", REPL_NONE_NONE);
+            Event::FileLoaded => {
+                log::trace!("Received file-loaded event.");
                 // Display the category of the video at start
                 if let Some(c) = actions.get_video_category() {
                     let message = format!(
@@ -82,7 +81,7 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                     mpv_handle.osd_message(message, Duration::from_secs(10)).unwrap();
                 }
             }
-            (REPL_PROP_TIME, Ok(Event::PropertyChange(data))) => {
+            Event::PropertyChange(REPL_PROP_TIME, data) => {
                 log::trace!("Received {} on reply {}.", data.name(), REPL_PROP_TIME);
                 // Get new time position
                 if let Some(time_pos) = data.data::<f64>() {
@@ -109,8 +108,8 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                     log::warn!("Received {} without data. Ignoring...", data.name());
                 }
             }
-            (REPL_PROP_VOLU, Ok(Event::PropertyChange(data))) => {
-                log::trace!("Received {} on reply {}.", data.name(), REPL_PROP_VOLU);
+            Event::PropertyChange(REPL_PROP_VOLU, data) => {
+                log::trace!("Received {}.", data.name());
                 // Get the new volume
                 if let Some(volume) = data.data::<f64>() {
                     // Save the volume
@@ -120,8 +119,8 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                     log::warn!("Received {} without data. Ignoring...", data.name());
                 }
             }
-            (REPL_NONE_NONE, Ok(Event::EndFile)) => {
-                log::trace!("Received end-file event on reply {}.", REPL_NONE_NONE);
+            Event::EndFile => {
+                log::trace!("Received end-file event.");
                 // Reset volume when file end to avoid starting next file with volume at 0
                 if Volume::Default != actions.get_volume_source() {
                     log::info!("Unmuting video.");
@@ -129,16 +128,13 @@ extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
                     mpv_handle.set_property(NAME_PROP_VOLU, actions.get_volume()).unwrap();
                 }
             }
-            (REPL_NONE_NONE, Ok(Event::Shutdown)) => {
-                log::trace!("Received shutdown event on reply {}.", REPL_NONE_NONE);
+            Event::Shutdown => {
+                log::trace!("Received shutdown event.");
                 // End plugin
                 return 0;
             }
-            (reply, Ok(event)) => {
-                log::trace!("Ignoring {} event on reply {}.", event, reply);
-            }
-            (reply, Err(e)) => {
-                log::error!("Asynchronous call failed: {} on reply {}.", e, reply);
+            event => {
+                log::trace!("Ignoring {} event.", event);
             }
         }
     }

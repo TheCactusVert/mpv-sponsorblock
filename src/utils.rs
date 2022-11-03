@@ -3,13 +3,13 @@ use std::time::Duration;
 use curl::easy::Easy;
 use regex::Regex;
 
-pub fn fetch_data(url: &str, timeout: Duration) -> Result<Vec<u8>, curl::Error> {
+pub fn fetch_data<S: AsRef<str>>(url: S, timeout: Duration) -> Result<Vec<u8>, curl::Error> {
     let mut buf = Vec::new();
     let mut handle = Easy::new();
 
     handle.timeout(timeout)?;
 
-    handle.url(url)?;
+    handle.url(url.as_ref())?;
     {
         let mut transfer = handle.transfer();
         transfer.write_function(|data| {
@@ -22,10 +22,10 @@ pub fn fetch_data(url: &str, timeout: Duration) -> Result<Vec<u8>, curl::Error> 
     Ok(buf)
 }
 
-pub fn get_youtube_id(path: &str) -> Option<String> {
+pub fn get_youtube_id<S: AsRef<str>>(path: S) -> Option<String> {
     // I don't uderstand this crap but it's working (almost)
     let regex = Regex::new(r"https?://(?:www\.)?(?:youtu\.be|youtube\.com|piped\.kavin\.rocks)/(?:v/|watch\?v=|embed/)?([A-Za-z0-9-_]{11})").ok()?;
-    let capture = regex.captures(path)?;
+    let capture = regex.captures(path.as_ref())?;
     capture.get(1).map(|m| m.as_str().to_string())
 }
 
