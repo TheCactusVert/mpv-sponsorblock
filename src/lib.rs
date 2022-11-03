@@ -6,7 +6,7 @@ mod sponsorblock;
 mod utils;
 
 use actions::{Actions, Volume, MUTE_VOLUME};
-use mpv_client::{Event, Handle, RawHandle};
+use mpv_client::{mpv_handle, Event, Handle};
 
 use std::time::Duration;
 
@@ -25,7 +25,7 @@ const PRIO_HOOK_NONE: i32 = 0;
 
 // MPV entry point
 #[no_mangle]
-extern "C" fn mpv_open_cplugin(handle: RawHandle) -> std::os::raw::c_int {
+extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
     // TODO Maybe use MPV logger ?
     let env = Env::new()
         .filter("MPV_SPONSORBLOCK_LOG")
