@@ -61,11 +61,8 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
         match mpv_handle.wait_event(-1.) {
             Event::Hook(REPL_HOOK_LOAD, data) => {
                 log::trace!("Received {}.", data.name());
-                // Get video path
-                let path: String = mpv_handle.get_property(NAME_PROP_PATH).unwrap();
                 // Blocking operation
-                // Non blocking operation might be better, but risky on short videos ?!
-                actions.load_chapters(path);
+                actions.load_chapters(mpv_handle.get_property::<String>(NAME_PROP_PATH).unwrap());
                 actions.reset_muted();
                 // Unblock MPV and continue
                 mpv_handle.hook_continue(data.id()).unwrap();
@@ -74,11 +71,10 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
                 log::trace!("Received file-loaded event.");
                 // Display the category of the video at start
                 if let Some(c) = actions.get_video_category() {
-                    let message = format!(
-                        "This entire video is labeled as {} and is too tightly integrated to be able to separate.",
-                        c
-                    );
-                    mpv_handle.osd_message(message, Duration::from_secs(10)).unwrap();
+                    mpv_handle.osd_message(
+                        format!("This entire video is labeled as {} and is too tightly integrated to be able to separate.", c),
+                        Duration::from_secs(10)
+                    ).unwrap();
                 }
             }
             Event::PropertyChange(REPL_PROP_TIME, data) => {
@@ -104,19 +100,13 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
                             mpv_handle.set_property(NAME_PROP_VOLU, actions.get_volume()).unwrap();
                         }
                     }
-                } else {
-                    log::warn!("Received {} without data. Ignoring...", data.name());
                 }
             }
             Event::PropertyChange(REPL_PROP_VOLU, data) => {
                 log::trace!("Received {}.", data.name());
                 // Get the new volume
                 if let Some(volume) = data.data::<f64>() {
-                    // Save the volume
                     actions.set_volume(volume);
-                } else {
-                    // Should be impossible
-                    log::warn!("Received {} without data. Ignoring...", data.name());
                 }
             }
             Event::EndFile => {
