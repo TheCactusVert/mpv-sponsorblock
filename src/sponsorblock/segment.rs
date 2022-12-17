@@ -4,7 +4,7 @@ use crate::utils::fetch_data;
 use super::action::Action;
 use super::category::Category;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use serde_derive::Deserialize;
 use sha2::{Digest, Sha256};
 
@@ -38,8 +38,10 @@ struct Video {
 
 type Videos = Vec<Video>;
 
+static NOT_FOUND: &'static [u8] = b"Not Found";
+
 impl Segment {
-    pub(super) fn fetch(config: &Config, id: String) -> Result<Segments> {
+    pub(super) fn fetch(config: &Config, id: String) -> Result<Option<Segments>> {
         let buf = fetch_data(
             &format!(
                 "{}/api/skipSegments?videoID={}&{}",
@@ -50,12 +52,16 @@ impl Segment {
             config.timeout,
         )?;
 
-        // Parse the string of data into Segments.
-        let segments: Segments = serde_json::from_slice(&buf)?;
-        Ok(segments)
+        if buf == NOT_FOUND {
+            Ok(None)
+        } else {
+            // Parse the string of data into Segments.
+            let segments: Segments = serde_json::from_slice(&buf)?;
+            Ok(Some(segments))
+        }
     }
 
-    pub(super) fn fetch_with_privacy(config: &Config, id: String) -> Result<Segments> {
+    pub(super) fn fetch_with_privacy(config: &Config, id: String) -> Result<Option<Segments>> {
         let mut hasher = Sha256::new(); // create a Sha256 object
         hasher.update(&id); // write input message
         let hash = hasher.finalize(); // read hash digest and consume hasher
@@ -70,13 +76,16 @@ impl Segment {
             config.timeout,
         )?;
 
-        // Parse the string of data into Videos.
-        let videos: Videos = serde_json::from_slice(&buf)?;
-        Ok(videos
-            .into_iter()
-            .find(|v| v.video_id == id)
-            .ok_or(anyhow!("the SponsorBlock API returned invalid data."))?
-            .segments)
+        if buf == NOT_FOUND {
+            Ok(None)
+        } else {
+            // Parse the string of data into Videos.
+            let videos: Videos = serde_json::from_slice(&buf)?;
+            Ok(videos
+                .into_iter()
+                .find(|v| v.video_id == id)
+                .and_then(|v| Some(v.segments)))
+        }
     }
 
     pub fn is_in_segment(&self, time: f64) -> bool {
