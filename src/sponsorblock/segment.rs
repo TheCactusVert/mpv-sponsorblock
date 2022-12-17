@@ -4,7 +4,7 @@ use crate::utils::fetch_data;
 use super::action::Action;
 use super::category::Category;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde_derive::Deserialize;
 use sha2::{Digest, Sha256};
 
@@ -56,7 +56,8 @@ impl Segment {
             Ok(None)
         } else {
             // Parse the string of data into Segments.
-            let segments: Segments = serde_json::from_slice(&buf)?;
+            let segments: Segments =
+                serde_json::from_slice(&buf).context("The SponsorBlock API returned invalid data.")?;
             Ok(Some(segments))
         }
     }
@@ -80,7 +81,8 @@ impl Segment {
             Ok(None)
         } else {
             // Parse the string of data into Videos.
-            let videos: Videos = serde_json::from_slice(&buf)?;
+            let videos: Videos =
+                serde_json::from_slice(&buf).context("The SponsorBlock private API returned invalid data.")?;
             Ok(videos
                 .into_iter()
                 .find(|v| v.video_id == id)
