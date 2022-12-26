@@ -1,4 +1,5 @@
 #![feature(drain_filter)]
+#![feature(is_some_and)]
 
 mod actions;
 mod config;
@@ -23,19 +24,26 @@ const REPL_HOOK_LOAD: u64 = 3;
 
 const PRIO_HOOK_NONE: i32 = 0;
 
-fn skip(mpv_handle: &Handle, s: &Segment) {
-    log::info!("Skipping {}.", s);
-    mpv_handle.set_property(NAME_PROP_TIME, s.segment[1]).unwrap();
+fn skip(mpv_handle: &Handle, working_segment: &Segment) {
+    log::info!("Skipping {}.", working_segment);
+    mpv_handle
+        .set_property(NAME_PROP_TIME, working_segment.segment[1])
+        .unwrap();
 }
 
-fn mute(mpv_handle: &Handle, s: &Segment, entering_segment: bool, mute_sponsorblock: &mut bool) {
-    // Working only if entering a new segment and not already mutted by plugin
-    if !entering_segment || *mute_sponsorblock {
+fn mute(
+    mpv_handle: &Handle,
+    working_segment: &Segment,
+    current_segment: Option<&Segment>,
+    mute_sponsorblock: &mut bool,
+) {
+    // Working only if entering a new segment
+    if current_segment.is_some_and(|segment| segment.uuid == working_segment.uuid) {
         return;
     }
 
-    if mpv_handle.get_property::<String>(NAME_PROP_MUTE).unwrap() != "yes" {
-        log::info!("Mutting {}.", s);
+    if *mute_sponsorblock || mpv_handle.get_property::<String>(NAME_PROP_MUTE).unwrap() != "yes" {
+        log::info!("Mutting {}.", working_segment);
         mpv_handle.set_property(NAME_PROP_MUTE, "yes".to_string()).unwrap();
         *mute_sponsorblock = true;
     } else {
@@ -72,7 +80,7 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
     let mut actions = Actions::new();
 
     // Boolean to check if we are currently in a mutted segment
-    let mut mute_segment: Option<String> = None;
+    let mut mute_segment: Option<&Segment> = None;
     let mut mute_sponsorblock: bool = false;
 
     // Subscribe to property time-pos
@@ -91,14 +99,11 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
             Event::Hook(REPL_HOOK_LOAD, data) => {
                 log::trace!("Received {}.", data.name());
                 mute_segment = None;
-                // Blocking operation
                 actions.load_chapters(mpv_handle.get_property::<String>(NAME_PROP_PATH).unwrap());
-                // Unblock MPV and continue
                 mpv_handle.hook_continue(data.id()).unwrap();
             }
             Event::FileLoaded => {
                 log::trace!("Received file-loaded event.");
-                // Display the category of the video at start
                 if let Some(c) = actions.get_video_category() {
                     mpv_handle.osd_message(
                         format!("This entire video is labeled as '{}' and is too tightly integrated to be able to separate.", c),
@@ -108,14 +113,12 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
             }
             Event::PropertyChange(REPL_PROP_TIME, data) => {
                 log::trace!("Received {} on reply {}.", data.name(), REPL_PROP_TIME);
-                // Get new time position
                 if let Some(time_pos) = data.data::<f64>() {
                     if let Some(ref s) = actions.get_skip_segment(time_pos) {
                         skip(&mpv_handle, s); // Skip segments are priority
                     } else if let Some(ref s) = actions.get_mute_segment(time_pos) {
-                        let uuid = Some(s.uuid.clone());
-                        mute(&mpv_handle, s, mute_segment != uuid, &mut mute_sponsorblock);
-                        mute_segment = uuid;
+                        mute(&mpv_handle, s, mute_segment, &mut mute_sponsorblock);
+                        mute_segment = Some(s);
                     } else {
                         unmute(&mpv_handle, &mut mute_sponsorblock);
                         mute_segment = None;
