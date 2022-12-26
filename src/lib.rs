@@ -36,7 +36,7 @@ fn mute(mpv: &Handle, working_segment: &Segment, current_segment: Option<&Segmen
         return;
     }
 
-    // If already muted by the plugin do it again just for the log
+    // If muted by the plugin do it again just for the log or if not muted do it
     if *mute_sponsorblock || mpv.get_property::<String>(NAME_PROP_MUTE).unwrap() != "yes" {
         log::info!("Mutting {}.", working_segment);
         mpv.set_property(NAME_PROP_MUTE, "yes".to_string()).unwrap();
@@ -44,26 +44,30 @@ fn mute(mpv: &Handle, working_segment: &Segment, current_segment: Option<&Segmen
             .unwrap();
         *mute_sponsorblock = true;
     } else {
-        log::trace!("Muttable segment found but MPV was mutted by user before. Ignoring...");
-        *mute_sponsorblock = false;
+        log::debug!("Muttable segment found but mute was requested by user prior segment. Ignoring...");
     }
 }
 
-fn unmute(mpv: &Handle, mute_sponsorblock: &mut bool) {
+fn unmute(mpv: &Handle, current_segment: Option<&Segment>, mute_sponsorblock: &mut bool) {
+    // Working only if exiting segment
+    if current_segment.is_none() {
+        return;
+    }
+
+    // If muted the by plugin then unmute
     if *mute_sponsorblock {
         log::info!("Unmutting.");
         mpv.set_property(NAME_PROP_MUTE, "no".to_string()).unwrap();
         *mute_sponsorblock = false;
     } else {
-        log::trace!("Ignoring unmute...");
-        *mute_sponsorblock = false;
+        log::debug!("Muttable segment(s) ended but mute value was modified. Ignoring...");
     }
 }
 
 fn user_mute(value: String, mute_sponsorblock: &mut bool) {
-    match (value.as_str(), *mute_sponsorblock) {
-        ("no", true) => *mute_sponsorblock = false,
-        _ => {}
+    // If muted by the plugin and request unmute then plugin doesn't own mute
+    if *mute_sponsorblock && value == "no" {
+        *mute_sponsorblock = false;
     }
 }
 
@@ -125,7 +129,7 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
                         mute(&mpv, s, mute_segment, &mut mute_sponsorblock);
                         mute_segment = Some(s);
                     } else {
-                        unmute(&mpv, &mut mute_sponsorblock);
+                        unmute(&mpv, mute_segment, &mut mute_sponsorblock);
                         mute_segment = None;
                     }
                 }
@@ -138,7 +142,7 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
             }
             Event::EndFile => {
                 log::trace!("Received end-file event.");
-                unmute(&mpv, &mut mute_sponsorblock);
+                unmute(&mpv, mute_segment, &mut mute_sponsorblock);
             }
             Event::Shutdown => {
                 log::trace!("Received shutdown event.");
