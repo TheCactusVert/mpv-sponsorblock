@@ -6,8 +6,7 @@ use crate::sponsorblock::segment::{Segment, Segments};
 use crate::utils::get_youtube_id;
 
 use std::sync::{Arc, Mutex};
-use std::thread;
-use std::thread::JoinHandle;
+use std::thread::{self, JoinHandle};
 
 #[derive(Default)]
 struct SortedSegments {
