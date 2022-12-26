@@ -40,6 +40,8 @@ fn mute(mpv: &Handle, working_segment: &Segment, current_segment: Option<&Segmen
     if *mute_sponsorblock || mpv.get_property::<String>(NAME_PROP_MUTE).unwrap() != "yes" {
         log::info!("Mutting {}.", working_segment);
         mpv.set_property(NAME_PROP_MUTE, "yes".to_string()).unwrap();
+        mpv.osd_message(format!("Mutting {}.", working_segment), Duration::from_secs(8))
+            .unwrap();
         *mute_sponsorblock = true;
     } else {
         log::trace!("Muttable segment found but MPV was mutted by user before. Ignoring...");
