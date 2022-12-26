@@ -16,6 +16,7 @@ struct SortedSegments {
     full: Option<Segment>,
 }
 
+#[derive(Default)]
 pub struct Actions {
     config: Config,
     segments: Arc<Mutex<SortedSegments>>,
@@ -23,14 +24,6 @@ pub struct Actions {
 }
 
 impl Actions {
-    pub fn new() -> Self {
-        Actions {
-            config: Config::get(),
-            segments: Arc::new(Mutex::new(SortedSegments::default())),
-            handle: None,
-        }
-    }
-
     pub fn start(&mut self, path: String) {
         let inner_self = self.segments.clone();
         let config = self.config.clone();

@@ -90,7 +90,7 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
     log::debug!("Starting plugin SponsorBlock [{}]!", mpv.client_name());
 
     // Create actions handler
-    let mut actions = Actions::new();
+    let mut actions = Actions::default();
 
     // Boolean to check if we are currently in a mutted segment
     let mut mute_segment: Option<Segment> = None;

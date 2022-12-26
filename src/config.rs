@@ -3,7 +3,6 @@ use crate::sponsorblock::category::Category;
 
 use std::collections::HashSet;
 
-use anyhow::{anyhow, Result};
 use serde_derive::Deserialize;
 
 #[derive(Debug, Deserialize, Clone)]
@@ -23,23 +22,6 @@ impl Config {
         "https://sponsor.ajay.app".to_string()
     }
 
-    fn from_file() -> Result<Self> {
-        let config_file = dirs::config_dir()
-            .ok_or(anyhow!("failed to find config directory"))?
-            .join("mpv/sponsorblock.toml");
-        Ok(toml::from_str(&std::fs::read_to_string(config_file)?)?)
-    }
-
-    pub fn get() -> Self {
-        match Self::from_file() {
-            Ok(c) => c,
-            Err(e) => {
-                log::error!("Failed to read config file: {}", e);
-                Config::default()
-            }
-        }
-    }
-
     pub fn parameters(&self) -> String {
         let categories = self.categories.iter().map(|v| format!("category={}", v));
         let action_types = self.action_types.iter().map(|v| format!("actionType={}", v));
@@ -50,11 +32,14 @@ impl Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Self {
-            server_address: Self::default_server_address(),
-            categories: HashSet::default(),
-            action_types: HashSet::default(),
-            privacy_api: bool::default(),
-        }
+        dirs::config_dir()
+            .and_then(|dir| std::fs::read_to_string(dir.join("mpv/sponsorblock.toml")).ok())
+            .and_then(|data| toml::from_str(&data).ok())
+            .unwrap_or(Self {
+                server_address: Self::default_server_address(),
+                categories: HashSet::default(),
+                action_types: HashSet::default(),
+                privacy_api: bool::default(),
+            })
     }
 }
