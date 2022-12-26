@@ -8,6 +8,7 @@ use segment::{Segment, Segments};
 
 use cached::proc_macro::cached;
 use cached::SizedCache;
+use ureq::Error::Status;
 
 #[cached(
     type = "SizedCache<String, Segments>",
@@ -24,6 +25,7 @@ pub fn fetch_segments(config: &Config, id: String) -> Option<Segments> {
         Segment::fetch(config, id)
     } {
         Ok(v) => v,
+        Err(Status(404, _)) => None,
         Err(e) => {
             log::error!("Failed to get segments: {}.", e);
             None

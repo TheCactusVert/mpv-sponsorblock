@@ -5,9 +5,10 @@ use crate::config::Config;
 use super::action::Action;
 use super::category::Category;
 
-use anyhow::Result;
 use serde_derive::Deserialize;
 use sha2::{Digest, Sha256};
+
+type Result<T> = core::result::Result<T, ureq::Error>;
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
