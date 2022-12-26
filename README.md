@@ -36,4 +36,4 @@ If you don't, only the sponsors segments will be skipped by default as specified
 
 ## Usage
 Play a YouTube video and segments you chose in the configuration file will be skipped or muted. If the video is entirely labeled as a category it will be shown at startup :
-![celluloid](https://gavrois.fr/mpv-sponsorblock/celluloid.png)
+![celluloid](images/celluloid.png)
