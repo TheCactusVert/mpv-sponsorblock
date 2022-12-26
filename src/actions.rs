@@ -9,8 +9,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::JoinHandle;
 
-#[derive(Debug)]
-
+#[derive(Default)]
 struct SortedSegments {
     skippable: Segments,
     mutable: Segments,
@@ -28,12 +27,7 @@ impl Actions {
     pub fn new() -> Self {
         Actions {
             config: Config::get(),
-            segments: Arc::new(Mutex::new(SortedSegments {
-                skippable: Vec::new(),
-                mutable: Vec::new(),
-                poi: None,
-                full: None,
-            })),
+            segments: Arc::new(Mutex::new(SortedSegments::default())),
             handle: None,
         }
     }
