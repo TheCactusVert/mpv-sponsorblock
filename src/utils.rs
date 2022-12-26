@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use regex::Regex;
 
 pub fn get_youtube_id<S: AsRef<str>>(path: S) -> Option<String> {

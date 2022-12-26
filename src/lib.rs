@@ -17,22 +17,25 @@ use env_logger::Env;
 static NAME_PROP_PATH: &str = "path";
 static NAME_PROP_TIME: &str = "time-pos";
 static NAME_PROP_MUTE: &str = "mute";
-static NAME_HOOK_LOAD: &str = "on_load";
+static NAME_HOOK_END: &str = "on_after_end_file";
 
 const REPL_PROP_TIME: u64 = 1;
 const REPL_PROP_MUTE: u64 = 2;
-const REPL_HOOK_LOAD: u64 = 3;
+const REPL_HOOK_END: u64 = 3;
 
 const PRIO_HOOK_NONE: i32 = 0;
 
-fn skip(mpv: &Handle, working_segment: &Segment) {
+fn skip(mpv: &Handle, working_segment: Segment) {
     log::info!("Skipping {}.", working_segment);
     mpv.set_property(NAME_PROP_TIME, working_segment.segment[1]).unwrap();
 }
 
-fn mute(mpv: &Handle, working_segment: &Segment, current_segment: Option<&Segment>, mute_sponsorblock: &mut bool) {
+fn mute(mpv: &Handle, working_segment: Segment, current_segment: &Option<Segment>, mute_sponsorblock: &mut bool) {
     // Working only if entering a new segment
-    if current_segment.is_some_and(|segment| segment.uuid == working_segment.uuid) {
+    if current_segment
+        .as_ref()
+        .is_some_and(|ref segment| segment.uuid == working_segment.uuid)
+    {
         return;
     }
 
@@ -48,7 +51,7 @@ fn mute(mpv: &Handle, working_segment: &Segment, current_segment: Option<&Segmen
     }
 }
 
-fn unmute(mpv: &Handle, current_segment: Option<&Segment>, mute_sponsorblock: &mut bool) {
+fn unmute(mpv: &Handle, current_segment: &Option<Segment>, mute_sponsorblock: &mut bool) {
     // Working only if exiting segment
     if current_segment.is_none() {
         return;
@@ -90,7 +93,7 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
     let mut actions = Actions::new();
 
     // Boolean to check if we are currently in a mutted segment
-    let mut mute_segment: Option<&Segment> = None;
+    let mut mute_segment: Option<Segment> = None;
     let mut mute_sponsorblock: bool = false;
 
     // Subscribe to property time-pos
@@ -99,17 +102,16 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
     // Subscribe to property mute
     mpv.observe_property::<String>(REPL_PROP_MUTE, NAME_PROP_MUTE).unwrap();
 
-    // Add hook on file load
-    mpv.hook_add(REPL_HOOK_LOAD, NAME_HOOK_LOAD, PRIO_HOOK_NONE).unwrap();
+    // Add hook on file unload
+    mpv.hook_add(REPL_HOOK_END, NAME_HOOK_END, PRIO_HOOK_NONE).unwrap();
 
     loop {
         // Wait for MPV events indefinitely
         match mpv.wait_event(-1.) {
-            Event::Hook(REPL_HOOK_LOAD, data) => {
-                log::trace!("Received {}.", data.name());
+            Event::StartFile(_) => {
+                log::trace!("Received start-file event.");
                 mute_segment = None;
-                actions.load_chapters(mpv.get_property::<String>(NAME_PROP_PATH).unwrap());
-                mpv.hook_continue(data.id()).unwrap();
+                actions.start(mpv.get_property::<String>(NAME_PROP_PATH).unwrap());
             }
             Event::FileLoaded => {
                 log::trace!("Received file-loaded event.");
@@ -123,13 +125,13 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
             Event::PropertyChange(REPL_PROP_TIME, data) => {
                 log::trace!("Received {} on reply {}.", data.name(), REPL_PROP_TIME);
                 if let Some(time_pos) = data.data::<f64>() {
-                    if let Some(ref s) = actions.get_skip_segment(time_pos) {
+                    if let Some(s) = actions.get_skip_segment(time_pos) {
                         skip(&mpv, s); // Skip segments are priority
-                    } else if let Some(ref s) = actions.get_mute_segment(time_pos) {
-                        mute(&mpv, s, mute_segment, &mut mute_sponsorblock);
+                    } else if let Some(s) = actions.get_mute_segment(time_pos) {
+                        mute(&mpv, s.clone(), &mute_segment, &mut mute_sponsorblock);
                         mute_segment = Some(s);
                     } else {
-                        unmute(&mpv, mute_segment, &mut mute_sponsorblock);
+                        unmute(&mpv, &mute_segment, &mut mute_sponsorblock);
                         mute_segment = None;
                     }
                 }
@@ -142,7 +144,12 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
             }
             Event::EndFile => {
                 log::trace!("Received end-file event.");
-                unmute(&mpv, mute_segment, &mut mute_sponsorblock);
+                unmute(&mpv, &mute_segment, &mut mute_sponsorblock);
+            }
+            Event::Hook(REPL_HOOK_END, data) => {
+                log::trace!("Received {}.", data.name());
+                actions.join(); // Blocking action, so we use a hook
+                mpv.hook_continue(data.id()).unwrap();
             }
             Event::Shutdown => {
                 log::trace!("Received shutdown event.");

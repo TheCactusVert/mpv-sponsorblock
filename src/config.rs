@@ -6,7 +6,7 @@ use std::{collections::HashSet, time::Duration};
 use anyhow::{anyhow, Result};
 use serde_derive::Deserialize;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Config {
     #[serde(default = "Config::default_server_address")]
     pub server_address: String,

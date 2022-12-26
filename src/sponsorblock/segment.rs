@@ -3,7 +3,7 @@ use crate::config::Config;
 use super::action::Action;
 use super::category::Category;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde_derive::Deserialize;
 use sha2::{Digest, Sha256};
 

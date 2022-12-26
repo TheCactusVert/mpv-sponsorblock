@@ -5,60 +5,100 @@ use crate::sponsorblock::category::Category;
 use crate::sponsorblock::segment::{Segment, Segments};
 use crate::utils::get_youtube_id;
 
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::thread::JoinHandle;
+
 #[derive(Debug)]
-pub struct Actions {
-    config: Config,
+
+struct SortedSegments {
     skippable: Segments,
     mutable: Segments,
     poi: Option<Segment>,
     full: Option<Segment>,
 }
 
+pub struct Actions {
+    config: Config,
+    segments: Arc<Mutex<SortedSegments>>,
+    handle: Option<JoinHandle<()>>,
+}
+
 impl Actions {
     pub fn new() -> Self {
         Actions {
             config: Config::get(),
-            skippable: Vec::new(),
-            mutable: Vec::new(),
-            poi: None,
-            full: None,
+            segments: Arc::new(Mutex::new(SortedSegments {
+                skippable: Vec::new(),
+                mutable: Vec::new(),
+                poi: None,
+                full: None,
+            })),
+            handle: None,
         }
     }
 
-    pub fn load_chapters<S: AsRef<str>>(&mut self, path: S) {
-        let mut segments = get_youtube_id(path.as_ref())
-            .and_then(|id| sponsorblock::fetch_segments(&self.config, id))
-            .unwrap_or_default();
+    pub fn start(&mut self, path: String) {
+        let inner_self = self.segments.clone();
+        let config = self.config.clone();
 
-        // The sgments will be searched multiple times by seconds.
-        // It's more efficient to split them before.
+        self.handle = Some(thread::spawn(move || {
+            let mut segments = get_youtube_id(path)
+                .and_then(|id| sponsorblock::fetch_segments(&config, id))
+                .unwrap_or_default();
 
-        self.skippable = segments.drain_filter(|s| s.action == Action::Skip).collect();
-        log::debug!("Found {} skippable segment(s).", self.skippable.len());
+            // Lock only when segments are found
 
-        self.mutable = segments.drain_filter(|s| s.action == Action::Mute).collect();
-        log::debug!("Found {} muttable segment(s).", self.mutable.len());
+            let mut s = inner_self.lock().unwrap();
 
-        self.poi = segments.drain_filter(|s| s.action == Action::Poi).next();
-        log::debug!("Highlight {}.", if self.poi.is_some() { "found" } else { "not found" });
+            // The sgments will be searched multiple times by seconds.
+            // It's more efficient to split them before.
 
-        self.full = segments.drain_filter(|s| s.action == Action::Full).next();
-        log::debug!("Category {}.", if self.full.is_some() { "found" } else { "not found" });
+            (*s).skippable = segments.drain_filter(|s| s.action == Action::Skip).collect();
+            log::debug!("Found {} skippable segment(s).", (*s).skippable.len());
+
+            (*s).mutable = segments.drain_filter(|s| s.action == Action::Mute).collect();
+            log::debug!("Found {} muttable segment(s).", (*s).mutable.len());
+
+            (*s).poi = segments.drain_filter(|s| s.action == Action::Poi).next();
+            log::debug!("Highlight {}.", if (*s).poi.is_some() { "found" } else { "not found" });
+
+            (*s).full = segments.drain_filter(|s| s.action == Action::Full).next();
+            log::debug!("Category {}.", if (*s).full.is_some() { "found" } else { "not found" });
+        }));
     }
 
-    pub fn get_skip_segment(&self, time_pos: f64) -> Option<&Segment> {
-        self.skippable.iter().find(|s| s.is_in_segment(time_pos))
+    pub fn join(&mut self) {
+        if let Some(handle) = self.handle.take() {
+            handle.join().unwrap();
+        }
     }
 
-    pub fn get_mute_segment(&self, time_pos: f64) -> Option<&Segment> {
-        self.mutable.iter().find(|s| s.is_in_segment(time_pos))
+    pub fn get_skip_segment(&self, time_pos: f64) -> Option<Segment> {
+        self.segments
+            .lock()
+            .unwrap()
+            .skippable
+            .iter()
+            .find(|s| s.is_in_segment(time_pos))
+            .cloned()
+    }
+
+    pub fn get_mute_segment(&self, time_pos: f64) -> Option<Segment> {
+        self.segments
+            .lock()
+            .unwrap()
+            .mutable
+            .iter()
+            .find(|s| s.is_in_segment(time_pos))
+            .cloned()
     }
 
     pub fn get_video_poi(&self) -> Option<f64> {
-        self.poi.as_ref().map(|s| s.segment[0])
+        self.segments.lock().unwrap().poi.as_ref().map(|s| s.segment[0])
     }
 
     pub fn get_video_category(&self) -> Option<Category> {
-        self.full.as_ref().map(|s| s.category)
+        self.segments.lock().unwrap().full.as_ref().map(|s| s.category)
     }
 }
