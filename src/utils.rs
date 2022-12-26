@@ -1,26 +1,6 @@
 use std::time::Duration;
 
-use curl::easy::Easy;
 use regex::Regex;
-
-pub fn fetch_data<S: AsRef<str>>(url: S, timeout: Duration) -> Result<Vec<u8>, curl::Error> {
-    let mut buf = Vec::new();
-    let mut handle = Easy::new();
-
-    handle.timeout(timeout)?;
-
-    handle.url(url.as_ref())?;
-    {
-        let mut transfer = handle.transfer();
-        transfer.write_function(|data| {
-            buf.extend_from_slice(data);
-            Ok(data.len())
-        })?;
-        transfer.perform()?;
-    }
-
-    Ok(buf)
-}
 
 pub fn get_youtube_id<S: AsRef<str>>(path: S) -> Option<String> {
     // I don't uderstand this crap but it's working (almost)

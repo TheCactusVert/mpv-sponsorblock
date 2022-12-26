@@ -1,5 +1,4 @@
 use crate::config::Config;
-use crate::utils::fetch_data;
 
 use super::action::Action;
 use super::category::Category;
@@ -38,28 +37,18 @@ struct Video {
 
 type Videos = Vec<Video>;
 
-static NOT_FOUND: &'static [u8] = b"Not Found";
-
 impl Segment {
     pub(super) fn fetch(config: &Config, id: String) -> Result<Option<Segments>> {
-        let buf = fetch_data(
-            &format!(
-                "{}/api/skipSegments?videoID={}&{}",
-                config.server_address,
-                id,
-                config.parameters(),
-            ),
-            config.timeout,
-        )?;
-
-        if buf == NOT_FOUND {
-            Ok(None)
-        } else {
-            // Parse the string of data into Segments.
-            let segments: Segments =
-                serde_json::from_slice(&buf).context("The SponsorBlock API returned invalid data.")?;
-            Ok(Some(segments))
-        }
+        Ok(ureq::get(&format!(
+            "{}/api/skipSegments?videoID={}&{}",
+            config.server_address,
+            id,
+            config.parameters(),
+        ))
+        .timeout(config.timeout)
+        .call()?
+        .into_json::<Segments>()
+        .ok())
     }
 
     pub(super) fn fetch_with_privacy(config: &Config, id: String) -> Result<Option<Segments>> {
@@ -67,27 +56,20 @@ impl Segment {
         hasher.update(&id); // write input message
         let hash = hasher.finalize(); // read hash digest and consume hasher
 
-        let buf = fetch_data(
-            &format!(
-                "{}/api/skipSegments/{:.4}?{}",
-                config.server_address,
-                hex::encode(hash),
-                config.parameters(),
-            ),
-            config.timeout,
-        )?;
+        let videos = ureq::get(&format!(
+            "{}/api/skipSegments/{:.4}?{}",
+            config.server_address,
+            hex::encode(hash),
+            config.parameters()
+        ))
+        .timeout(config.timeout)
+        .call()?
+        .into_json::<Videos>()?;
 
-        if buf == NOT_FOUND {
-            Ok(None)
-        } else {
-            // Parse the string of data into Videos.
-            let videos: Videos =
-                serde_json::from_slice(&buf).context("The SponsorBlock private API returned invalid data.")?;
-            Ok(videos
-                .into_iter()
-                .find(|v| v.video_id == id)
-                .and_then(|v| Some(v.segments)))
-        }
+        Ok(videos
+            .into_iter()
+            .find(|v| v.video_id == id)
+            .and_then(|v| Some(v.segments)))
     }
 
     pub fn is_in_segment(&self, time: f64) -> bool {
