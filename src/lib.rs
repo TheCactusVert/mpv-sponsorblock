@@ -44,7 +44,7 @@ fn mute(mpv: &Handle, working_segment: &Segment, current_segment: Option<&Segmen
             .unwrap();
         *mute_sponsorblock = true;
     } else {
-        log::debug!("Muttable segment found but mute was requested by user prior segment. Ignoring...");
+        log::info!("Muttable segment found but mute was requested by user prior segment. Ignoring...");
     }
 }
 
@@ -60,7 +60,7 @@ fn unmute(mpv: &Handle, current_segment: Option<&Segment>, mute_sponsorblock: &m
         mpv.set_property(NAME_PROP_MUTE, "no".to_string()).unwrap();
         *mute_sponsorblock = false;
     } else {
-        log::debug!("Muttable segment(s) ended but mute value was modified. Ignoring...");
+        log::info!("Muttable segment(s) ended but mute value was modified. Ignoring...");
     }
 }
 
