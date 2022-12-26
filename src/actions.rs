@@ -35,13 +35,15 @@ impl Actions {
         let inner_self = self.segments.clone();
         let config = self.config.clone();
 
+        let id = match get_youtube_id(path) {
+            Some(v) => v,
+            None => return,
+        };
+
         self.handle = Some(thread::spawn(move || {
-            let mut segments = get_youtube_id(path)
-                .and_then(|id| sponsorblock::fetch_segments(&config, id))
-                .unwrap_or_default();
+            let mut segments = sponsorblock::fetch_segments(&config, id).unwrap_or_default();
 
             // Lock only when segments are found
-
             let mut s = inner_self.lock().unwrap();
 
             // The sgments will be searched multiple times by seconds.
