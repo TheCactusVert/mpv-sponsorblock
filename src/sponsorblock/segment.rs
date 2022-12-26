@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::config::Config;
 
 use super::action::Action;
@@ -45,7 +47,7 @@ impl Segment {
             id,
             config.parameters(),
         ))
-        .timeout(config.timeout)
+        .timeout(Duration::from_secs(1))
         .call()?
         .into_json::<Segments>()
         .ok())
@@ -62,7 +64,7 @@ impl Segment {
             hex::encode(hash),
             config.parameters()
         ))
-        .timeout(config.timeout)
+        .timeout(Duration::from_secs(1))
         .call()?
         .into_json::<Videos>()?;
 
