@@ -5,8 +5,9 @@ mod config;
 mod sponsorblock;
 mod utils;
 
-use actions::{Actions, Volume, MUTE_VOLUME};
+use actions::Actions;
 use mpv_client::{mpv_handle, Event, Handle};
+use sponsorblock::segment::Segment;
 
 use std::time::Duration;
 
@@ -14,14 +15,43 @@ use env_logger::Env;
 
 static NAME_PROP_PATH: &str = "path";
 static NAME_PROP_TIME: &str = "time-pos";
-static NAME_PROP_VOLU: &str = "volume";
+static NAME_PROP_MUTE: &str = "mute";
 static NAME_HOOK_LOAD: &str = "on_load";
 
 const REPL_PROP_TIME: u64 = 1;
-const REPL_PROP_VOLU: u64 = 2;
 const REPL_HOOK_LOAD: u64 = 3;
 
 const PRIO_HOOK_NONE: i32 = 0;
+
+fn skip(mpv_handle: &Handle, s: &Segment) {
+    log::info!("Skipping {}.", s);
+    mpv_handle.set_property(NAME_PROP_TIME, s.segment[1]).unwrap();
+}
+
+fn mute(mpv_handle: &Handle, s: &Segment, entering_segment: bool, mute_sponsorblock: &mut bool) {
+    // Working only if entering a new segment and not already mutted by plugin
+    if !entering_segment || *mute_sponsorblock {
+        return;
+    }
+
+    if mpv_handle.get_property::<String>(NAME_PROP_MUTE).unwrap() != "yes" {
+        log::info!("Mutting {}.", s);
+        mpv_handle.set_property(NAME_PROP_MUTE, "yes".to_string()).unwrap();
+        *mute_sponsorblock = true;
+    } else {
+        log::trace!("Muttable segment found but MPV was mutted by user before. Ignoring...");
+    }
+}
+
+fn unmute(mpv_handle: &Handle, mute_sponsorblock: &mut bool) {
+    if *mute_sponsorblock {
+        log::info!("Unmutting.");
+        mpv_handle.set_property(NAME_PROP_MUTE, "no".to_string()).unwrap();
+        *mute_sponsorblock = false;
+    } else {
+        log::trace!("Ignoring unmute...");
+    }
+}
 
 // MPV entry point
 #[no_mangle]
@@ -41,14 +71,13 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
     // Create actions handler
     let mut actions = Actions::new();
 
+    // Boolean to check if we are currently in a mutted segment
+    let mut mute_segment: Option<String> = None;
+    let mut mute_sponsorblock: bool = false;
+
     // Subscribe to property time-pos
     mpv_handle
         .observe_property::<f64>(REPL_PROP_TIME, NAME_PROP_TIME)
-        .unwrap();
-
-    // Subscribe to property volume (is mute deprecated ?)
-    mpv_handle
-        .observe_property::<f64>(REPL_PROP_VOLU, NAME_PROP_VOLU)
         .unwrap();
 
     // Add hook on file load
@@ -61,9 +90,9 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
         match mpv_handle.wait_event(-1.) {
             Event::Hook(REPL_HOOK_LOAD, data) => {
                 log::trace!("Received {}.", data.name());
+                mute_segment = None;
                 // Blocking operation
                 actions.load_chapters(mpv_handle.get_property::<String>(NAME_PROP_PATH).unwrap());
-                actions.reset_muted();
                 // Unblock MPV and continue
                 mpv_handle.hook_continue(data.id()).unwrap();
             }
@@ -72,7 +101,7 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
                 // Display the category of the video at start
                 if let Some(c) = actions.get_video_category() {
                     mpv_handle.osd_message(
-                        format!("This entire video is labeled as {} and is too tightly integrated to be able to separate.", c),
+                        format!("This entire video is labeled as '{}' and is too tightly integrated to be able to separate.", c),
                         Duration::from_secs(10)
                     ).unwrap();
                 }
@@ -82,45 +111,24 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
                 // Get new time position
                 if let Some(time_pos) = data.data::<f64>() {
                     if let Some(ref s) = actions.get_skip_segment(time_pos) {
-                        // Skip segments are priority
-                        log::info!("Skipping {}.", s);
-                        mpv_handle.set_property(NAME_PROP_TIME, s.segment[1]).unwrap();
+                        skip(&mpv_handle, s); // Skip segments are priority
                     } else if let Some(ref s) = actions.get_mute_segment(time_pos) {
-                        // Mute when no skip segments
-                        if Volume::Default == actions.get_volume_source() {
-                            log::info!("Muting {}.", s);
-                            actions.force_muted();
-                            mpv_handle.set_property(NAME_PROP_VOLU, MUTE_VOLUME).unwrap();
-                        }
+                        let uuid = Some(s.uuid.clone());
+                        mute(&mpv_handle, s, mute_segment != uuid, &mut mute_sponsorblock);
+                        mute_segment = uuid;
                     } else {
-                        // Reset volume when not in mute segment
-                        if Volume::Default != actions.get_volume_source() {
-                            log::info!("Unmuting video.");
-                            actions.reset_muted();
-                            mpv_handle.set_property(NAME_PROP_VOLU, actions.get_volume()).unwrap();
-                        }
+                        unmute(&mpv_handle, &mut mute_sponsorblock);
+                        mute_segment = None;
                     }
-                }
-            }
-            Event::PropertyChange(REPL_PROP_VOLU, data) => {
-                log::trace!("Received {}.", data.name());
-                // Get the new volume
-                if let Some(volume) = data.data::<f64>() {
-                    actions.set_volume(volume);
                 }
             }
             Event::EndFile => {
                 log::trace!("Received end-file event.");
-                // Reset volume when file end to avoid starting next file with volume at 0
-                if Volume::Default != actions.get_volume_source() {
-                    log::info!("Unmuting video.");
-                    actions.reset_muted();
-                    mpv_handle.set_property(NAME_PROP_VOLU, actions.get_volume()).unwrap();
-                }
+                unmute(&mpv_handle, &mut mute_sponsorblock);
+                mute_segment = None;
             }
             Event::Shutdown => {
                 log::trace!("Received shutdown event.");
-                // End plugin
                 return 0;
             }
             event => {

@@ -15,8 +15,8 @@ pub struct Segment {
     #[serde(rename = "actionType")]
     pub action: Action,
     pub segment: [f64; 2],
-    //#[serde(rename = "UUID")]
-    //pub uuid: String,
+    #[serde(rename = "UUID")]
+    pub uuid: String,
     //pub locked: i64,
     //pub votes: i64,
     //pub video_duration: f64,
