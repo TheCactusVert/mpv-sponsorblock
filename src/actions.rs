@@ -28,32 +28,29 @@ impl Actions {
         let inner_self = self.segments.clone();
         let config = self.config.clone();
 
-        let id = match get_youtube_id(path) {
-            Some(v) => v,
-            None => return,
-        };
+        self.handle = get_youtube_id(path).and_then(|id| {
+            Some(thread::spawn(move || {
+                let mut segments = sponsorblock::fetch_segments(config, id).unwrap_or_default();
 
-        self.handle = Some(thread::spawn(move || {
-            let mut segments = sponsorblock::fetch_segments(config, id).unwrap_or_default();
+                // Lock only when segments are found
+                let mut s = inner_self.lock().unwrap();
 
-            // Lock only when segments are found
-            let mut s = inner_self.lock().unwrap();
+                // The sgments will be searched multiple times by seconds.
+                // It's more efficient to split them before.
 
-            // The sgments will be searched multiple times by seconds.
-            // It's more efficient to split them before.
+                (*s).skippable = segments.drain_filter(|s| s.action == Action::Skip).collect();
+                log::info!("Found {} skippable segment(s)", (*s).skippable.len());
 
-            (*s).skippable = segments.drain_filter(|s| s.action == Action::Skip).collect();
-            log::info!("Found {} skippable segment(s)", (*s).skippable.len());
+                (*s).mutable = segments.drain_filter(|s| s.action == Action::Mute).collect();
+                log::info!("Found {} muttable segment(s)", (*s).mutable.len());
 
-            (*s).mutable = segments.drain_filter(|s| s.action == Action::Mute).collect();
-            log::info!("Found {} muttable segment(s)", (*s).mutable.len());
+                (*s).poi = segments.drain_filter(|s| s.action == Action::Poi).next();
+                log::info!("Highlight {}", if (*s).poi.is_some() { "found" } else { "not found" });
 
-            (*s).poi = segments.drain_filter(|s| s.action == Action::Poi).next();
-            log::info!("Highlight {}", if (*s).poi.is_some() { "found" } else { "not found" });
-
-            (*s).full = segments.drain_filter(|s| s.action == Action::Full).next();
-            log::info!("Category {}", if (*s).full.is_some() { "found" } else { "not found" });
-        }));
+                (*s).full = segments.drain_filter(|s| s.action == Action::Full).next();
+                log::info!("Category {}", if (*s).full.is_some() { "found" } else { "not found" });
+            }))
+        });
     }
 
     pub fn join(&mut self) {
