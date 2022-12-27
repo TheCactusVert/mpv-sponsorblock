@@ -8,7 +8,11 @@ Why not!
 Yes! Just follow the example [here](https://crates.io/crates/mpv-client) and you will be ready.
 
 ## Rquirements
+### Build dependencies
 - rust
+- openssl
+### Runtime dependencies
+- openssl
 
 ## Build
 Build the plugin:
