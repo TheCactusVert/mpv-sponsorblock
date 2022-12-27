@@ -1,14 +1,14 @@
 #![feature(drain_filter)]
 #![feature(is_some_and)]
 
-mod actions;
 mod config;
 mod sponsorblock;
 mod utils;
+mod worker;
 
-use actions::Actions;
 use mpv_client::{mpv_handle, Event, Handle};
 use sponsorblock::segment::Segment;
+use worker::Worker;
 
 use std::time::Duration;
 
@@ -91,8 +91,8 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
     // Show that the plugin has started
     log::debug!("Starting plugin SponsorBlock [{}]!", mpv.client_name());
 
-    // Create actions handler
-    let mut actions = Actions::default();
+    // Create SponsorBlock worker
+    let mut worker = Worker::default();
 
     // Boolean to check if we are currently in a mutted segment
     let mut mute_segment: Option<Segment> = None;
@@ -113,14 +113,14 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
             Event::StartFile(_) => {
                 log::trace!("Received start-file event");
                 mute_segment = None;
-                actions.start(mpv.get_property::<String>(NAME_PROP_PATH).unwrap());
+                worker.start(mpv.get_property::<String>(NAME_PROP_PATH).unwrap());
             }
             Event::PropertyChange(REPL_PROP_TIME, data) => {
                 log::trace!("Received {} on reply {}", data.name(), REPL_PROP_TIME);
                 if let Some(time_pos) = data.data::<f64>() {
-                    if let Some(s) = actions.get_skip_segment(time_pos) {
+                    if let Some(s) = worker.get_skip_segment(time_pos) {
                         skip(&mpv, s); // Skip segments are priority
-                    } else if let Some(s) = actions.get_mute_segment(time_pos) {
+                    } else if let Some(s) = worker.get_mute_segment(time_pos) {
                         mute(&mpv, s.clone(), &mute_segment, &mut mute_sponsorblock);
                         mute_segment = Some(s);
                     } else {
@@ -141,7 +141,7 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
             }
             Event::Hook(REPL_HOOK_END, data) => {
                 log::trace!("Received {}", data.name());
-                actions.join(); // Blocking action, so we use a hook
+                worker.join(); // Blocking action, so we use a hook
                 mpv.hook_continue(data.id()).unwrap();
             }
             Event::Shutdown => {

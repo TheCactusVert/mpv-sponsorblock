@@ -17,13 +17,13 @@ struct SortedSegments {
 }
 
 #[derive(Default)]
-pub struct Actions {
+pub struct Worker {
     config: Config,
     segments: Arc<Mutex<SortedSegments>>,
     handle: Option<JoinHandle<()>>,
 }
 
-impl Actions {
+impl Worker {
     pub fn start(&mut self, path: String) {
         let inner_self = self.segments.clone();
         let config = self.config.clone();
