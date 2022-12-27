@@ -5,4 +5,4 @@ categories = ["sponsor"]
 # Action types: skip, mute, poi, full
 action_types = ["skip"]
 # Get segments for a video with extra privacy 
-privacy_api = true
+privacy_api = false
