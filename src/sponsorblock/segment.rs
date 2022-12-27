@@ -5,10 +5,9 @@ use super::category::Category;
 
 use std::time::Duration;
 
+use reqwest::Result;
 use serde_derive::Deserialize;
 use sha2::{Digest, Sha256};
-
-type Result<T> = core::result::Result<T, ureq::Error>;
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -42,21 +41,18 @@ struct Video {
 type Videos = Vec<Video>;
 
 impl Segment {
-    pub(super) fn fetch(config: Config, id: String) -> Result<Segments> {
-        let mut url = config.server_address.join("/api/skipSegments")?;
+    pub(super) async fn fetch(config: Config, id: String) -> Result<Segments> {
+        let mut url = config.server_address.join("/api/skipSegments").unwrap(); // TODO pas de unwrap
 
         url.query_pairs_mut()
             .append_pair("videoID", &id)
             .extend_pairs(config.categories.iter().map(|v| ("category", v.to_string())))
             .extend_pairs(config.action_types.iter().map(|v| ("actionType", v.to_string())));
 
-        Ok(ureq::get(url.as_str())
-            .timeout(Duration::from_secs(5))
-            .call()?
-            .into_json::<Segments>()?)
+        Ok(reqwest::get(url).await?.json::<Segments>().await?)
     }
 
-    pub(super) fn fetch_with_privacy(config: Config, id: String) -> Result<Segments> {
+    pub(super) async fn fetch_with_privacy(config: Config, id: String) -> Result<Segments> {
         let mut hasher = Sha256::new(); // create a Sha256 object
         hasher.update(id); // write input message
         let hash = hasher.finalize(); // read hash digest and consume hasher
@@ -64,17 +60,19 @@ impl Segment {
 
         let mut url = config
             .server_address
-            .join("/api/skipSegments/")?
-            .join(&hex::encode(hash)[0..4])?;
+            .join("/api/skipSegments/")
+            .unwrap() // TODO pas de unwrap
+            .join(&hex::encode(hash)[0..4])
+            .unwrap();
 
         url.query_pairs_mut()
             .extend_pairs(config.categories.iter().map(|v| ("category", v.to_string())))
             .extend_pairs(config.action_types.iter().map(|v| ("actionType", v.to_string())));
 
-        Ok(ureq::get(url.as_str())
-            .timeout(Duration::from_secs(5))
-            .call()?
-            .into_json::<Videos>()?
+        Ok(reqwest::get(url)
+            .await?
+            .json::<Videos>()
+            .await?
             .into_iter()
             .find(|v| v.hash == hash)
             .map_or(Segments::default(), |v| v.segments))

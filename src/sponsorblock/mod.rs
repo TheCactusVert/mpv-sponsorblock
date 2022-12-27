@@ -8,7 +8,6 @@ use segment::{Segment, Segments};
 
 use cached::proc_macro::cached;
 use cached::SizedCache;
-use ureq::Error::Status;
 
 #[cached(
     type = "SizedCache<String, Segments>",
@@ -16,16 +15,15 @@ use ureq::Error::Status;
     convert = r#"{ id.clone() }"#,
     option = true
 )]
-pub fn fetch_segments(config: Config, id: String) -> Option<Segments> {
+pub async fn fetch_segments(config: Config, id: String) -> Option<Segments> {
     match if config.privacy_api {
         log::debug!("Getting segments for video {} with extra privacy", id);
-        Segment::fetch_with_privacy(config, id)
+        Segment::fetch_with_privacy(config, id).await
     } else {
         log::debug!("Getting segments for video {}", id);
-        Segment::fetch(config, id)
+        Segment::fetch(config, id).await
     } {
         Ok(v) => Some(v),
-        Err(Status(404, _)) => None,
         Err(e) => {
             log::error!("Failed to get segments: {}", e);
             None

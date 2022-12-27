@@ -6,7 +6,11 @@ use crate::sponsorblock::segment::{Segment, Segments};
 use crate::utils::get_youtube_id;
 
 use std::sync::{Arc, Mutex};
-use std::thread::{self, JoinHandle};
+
+use tokio::runtime::Runtime;
+use tokio::select;
+use tokio::task::{self, JoinHandle};
+use tokio_util::sync::CancellationToken;
 
 #[derive(Default)]
 struct SortedSegments {
@@ -16,21 +20,40 @@ struct SortedSegments {
     full: Option<Segment>,
 }
 
-#[derive(Default)]
 pub struct Worker {
     config: Config,
     segments: Arc<Mutex<SortedSegments>>,
-    handle: Option<JoinHandle<()>>,
+    rt: Runtime,
+    token: CancellationToken,
+    join: Option<JoinHandle<()>>,
+}
+
+impl Default for Worker {
+    fn default() -> Self {
+        Self {
+            config: Config::default(),
+            segments: Arc::new(Mutex::new(SortedSegments::default())),
+            rt: Runtime::new().unwrap(),
+            token: CancellationToken::new(),
+            join: None,
+        }
+    }
 }
 
 impl Worker {
     pub fn start(&mut self, path: String) {
-        let inner_self = self.segments.clone();
         let config = self.config.clone();
+        let inner_self = self.segments.clone();
+        let token = self.token.clone();
 
-        self.handle = get_youtube_id(path).and_then(|id| {
-            Some(thread::spawn(move || {
-                let mut segments = sponsorblock::fetch_segments(config, id).unwrap_or_default();
+        self.join = get_youtube_id(path).and_then(|id| {
+            Some(self.rt.spawn(async move {
+                let fut_segments = sponsorblock::fetch_segments(config, id);
+
+                let mut segments = select! {
+                    _ = token.cancelled() => return,
+                    s = fut_segments => s.unwrap_or_default(),
+                };
 
                 // Lock only when segments are found
                 let mut s = inner_self.lock().unwrap();
@@ -54,8 +77,9 @@ impl Worker {
     }
 
     pub fn join(&mut self) {
-        if let Some(handle) = self.handle.take() {
-            handle.join().unwrap();
+        if let Some(join) = self.join.take() {
+            self.token.cancel();
+            self.rt.block_on(join);
         }
     }
 
