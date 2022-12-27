@@ -3,8 +3,6 @@ use crate::config::Config;
 use super::action::Action;
 use super::category::Category;
 
-use std::time::Duration;
-
 use reqwest::Result;
 use serde_derive::Deserialize;
 use sha2::{Digest, Sha256};

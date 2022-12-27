@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 
 use tokio::runtime::Runtime;
 use tokio::select;
-use tokio::task::{self, JoinHandle};
+use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
 #[derive(Default)]
@@ -114,7 +114,7 @@ impl Drop for Worker {
         log::debug!("Dropping segments");
         self.token.cancel();
         if let Some(join) = self.join.take() {
-            self.rt.block_on(join);
+            self.rt.block_on(join).unwrap();
         }
     }
 }
