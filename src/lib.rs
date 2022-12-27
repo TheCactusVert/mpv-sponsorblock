@@ -18,13 +18,9 @@ use env_logger::Env;
 static NAME_PROP_PATH: &str = "path";
 static NAME_PROP_TIME: &str = "time-pos";
 static NAME_PROP_MUTE: &str = "mute";
-static NAME_HOOK_END: &str = "on_after_end_file";
 
 const REPL_PROP_TIME: u64 = 1;
 const REPL_PROP_MUTE: u64 = 2;
-const REPL_HOOK_END: u64 = 3;
-
-const PRIO_HOOK_NONE: i32 = 0;
 
 fn skip(mpv: &Handle, working_segment: Segment) {
     mpv.set_property(NAME_PROP_TIME, working_segment.segment[1]).unwrap();
@@ -108,9 +104,6 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
     // Subscribe to property mute
     mpv.observe_property::<String>(REPL_PROP_MUTE, NAME_PROP_MUTE).unwrap();
 
-    // Add hook on file unload
-    mpv.hook_add(REPL_HOOK_END, NAME_HOOK_END, PRIO_HOOK_NONE).unwrap();
-
     loop {
         // Wait for MPV events indefinitely
         match mpv.wait_event(-1.) {
@@ -145,11 +138,7 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
             Event::EndFile => {
                 log::trace!("Received end-file event");
                 unmute(&mpv, &mute_segment, &mut mute_sponsorblock);
-            }
-            Event::Hook(REPL_HOOK_END, data) => {
-                log::trace!("Received {}", data.name());
-                worker = None; // Drop. Blocking action, so we use a hook
-                mpv.hook_continue(data.id()).unwrap();
+                worker = None;
             }
             Event::Shutdown => {
                 log::trace!("Received shutdown event");
