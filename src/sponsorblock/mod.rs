@@ -18,16 +18,16 @@ use ureq::Error::Status;
 )]
 pub fn fetch_segments(config: &Config, id: String) -> Option<Segments> {
     match if config.privacy_api {
-        log::debug!("Getting segments for video {} with extra privacy...", id);
+        log::debug!("Getting segments for video {} with extra privacy", id);
         Segment::fetch_with_privacy(config, id)
     } else {
-        log::debug!("Getting segments for video {}...", id);
+        log::debug!("Getting segments for video {}", id);
         Segment::fetch(config, id)
     } {
         Ok(v) => v,
         Err(Status(404, _)) => None,
         Err(e) => {
-            log::error!("Failed to get segments: {}.", e);
+            log::error!("Failed to get segments: {}", e);
             None
         }
     }

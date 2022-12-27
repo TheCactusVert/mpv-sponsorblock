@@ -33,7 +33,7 @@ impl Default for Config {
             .and_then(|dir| std::fs::read_to_string(dir.join("mpv/sponsorblock.toml")))
             .and_then(|data| toml::from_str(&data).map_err(|e| Error::new(ErrorKind::InvalidData, e)))
             .unwrap_or_else(|e| {
-                log::warn!("Failed to load configuration file: {}. Falling back to default.", e);
+                log::warn!("Failed to load configuration file: {}. Falling back to default", e);
                 toml::from_str(include_str!("../sponsorblock.toml")).unwrap()
             })
     }

@@ -26,7 +26,7 @@ const REPL_HOOK_END: u64 = 3;
 const PRIO_HOOK_NONE: i32 = 0;
 
 fn skip(mpv: &Handle, working_segment: Segment) {
-    log::info!("Skipping {}.", working_segment);
+    log::info!("Skipping {}", working_segment);
     mpv.set_property(NAME_PROP_TIME, working_segment.segment[1]).unwrap();
 }
 
@@ -41,13 +41,13 @@ fn mute(mpv: &Handle, working_segment: Segment, current_segment: &Option<Segment
 
     // If muted by the plugin do it again just for the log or if not muted do it
     if *mute_sponsorblock || mpv.get_property::<String>(NAME_PROP_MUTE).unwrap() != "yes" {
-        log::info!("Mutting {}.", working_segment);
+        log::info!("Mutting {}", working_segment);
         mpv.set_property(NAME_PROP_MUTE, "yes".to_string()).unwrap();
-        mpv.osd_message(format!("Mutting {}.", working_segment), Duration::from_secs(8))
+        mpv.osd_message(format!("Mutting {}", working_segment), Duration::from_secs(8))
             .unwrap();
         *mute_sponsorblock = true;
     } else {
-        log::info!("Muttable segment found but mute was requested by user prior segment. Ignoring...");
+        log::info!("Muttable segment found but mute was requested by user prior segment. Ignoring");
     }
 }
 
@@ -59,11 +59,11 @@ fn unmute(mpv: &Handle, current_segment: &Option<Segment>, mute_sponsorblock: &m
 
     // If muted the by plugin then unmute
     if *mute_sponsorblock {
-        log::info!("Unmutting.");
+        log::info!("Unmutting");
         mpv.set_property(NAME_PROP_MUTE, "no".to_string()).unwrap();
         *mute_sponsorblock = false;
     } else {
-        log::info!("Muttable segment(s) ended but mute value was modified. Ignoring...");
+        log::info!("Muttable segment(s) ended but mute value was modified. Ignoring");
     }
 }
 
@@ -109,21 +109,21 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
         // Wait for MPV events indefinitely
         match mpv.wait_event(-1.) {
             Event::StartFile(_) => {
-                log::trace!("Received start-file event.");
+                log::trace!("Received start-file event");
                 mute_segment = None;
                 actions.start(mpv.get_property::<String>(NAME_PROP_PATH).unwrap());
             }
             Event::FileLoaded => {
-                log::trace!("Received file-loaded event.");
+                log::trace!("Received file-loaded event");
                 if let Some(c) = actions.get_video_category() {
                     mpv.osd_message(
-                        format!("This entire video is labeled as '{}' and is too tightly integrated to be able to separate.", c),
+                        format!("This entire video is labeled as '{}' and is too tightly integrated to be able to separate", c),
                         Duration::from_secs(10)
                     ).unwrap();
                 }
             }
             Event::PropertyChange(REPL_PROP_TIME, data) => {
-                log::trace!("Received {} on reply {}.", data.name(), REPL_PROP_TIME);
+                log::trace!("Received {} on reply {}", data.name(), REPL_PROP_TIME);
                 if let Some(time_pos) = data.data::<f64>() {
                     if let Some(s) = actions.get_skip_segment(time_pos) {
                         skip(&mpv, s); // Skip segments are priority
@@ -137,26 +137,26 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
                 }
             }
             Event::PropertyChange(REPL_PROP_MUTE, data) => {
-                log::trace!("Received {} on reply {}.", data.name(), REPL_PROP_MUTE);
+                log::trace!("Received {} on reply {}", data.name(), REPL_PROP_MUTE);
                 if let Some(mute) = data.data::<String>() {
                     user_mute(mute, &mut mute_sponsorblock);
                 }
             }
             Event::EndFile => {
-                log::trace!("Received end-file event.");
+                log::trace!("Received end-file event");
                 unmute(&mpv, &mute_segment, &mut mute_sponsorblock);
             }
             Event::Hook(REPL_HOOK_END, data) => {
-                log::trace!("Received {}.", data.name());
+                log::trace!("Received {}", data.name());
                 actions.join(); // Blocking action, so we use a hook
                 mpv.hook_continue(data.id()).unwrap();
             }
             Event::Shutdown => {
-                log::trace!("Received shutdown event.");
+                log::trace!("Received shutdown event");
                 return 0;
             }
             event => {
-                log::trace!("Ignoring {} event.", event);
+                log::trace!("Ignoring {} event", event);
             }
         }
     }
