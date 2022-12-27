@@ -6,6 +6,7 @@ mod sponsorblock;
 mod utils;
 mod worker;
 
+use config::Config;
 use mpv_client::{mpv_handle, Event, Handle};
 use sponsorblock::segment::Segment;
 use worker::Worker;
@@ -91,6 +92,9 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
     // Show that the plugin has started
     log::debug!("Starting plugin SponsorBlock [{}]!", mpv.client_name());
 
+    // Read config
+    let config = Config::default();
+
     // Create SponsorBlock worker
     let mut worker: Option<Worker> = None;
 
@@ -113,7 +117,10 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
             Event::StartFile(_) => {
                 log::trace!("Received start-file event");
                 mute_segment = None;
-                worker = Some(Worker::default().start(mpv.get_property::<String>(NAME_PROP_PATH).unwrap()));
+                worker = Some(Worker::new(
+                    config.clone(),
+                    mpv.get_property::<String>(NAME_PROP_PATH).unwrap(),
+                ));
             }
             Event::PropertyChange(REPL_PROP_TIME, data) => {
                 log::trace!("Received {} on reply {}", data.name(), REPL_PROP_TIME);

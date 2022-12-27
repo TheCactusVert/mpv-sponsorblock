@@ -21,36 +21,29 @@ struct SortedSegments {
 }
 
 pub struct Worker {
-    config: Config,
     sorted_segments: Arc<Mutex<SortedSegments>>,
     rt: Runtime,
     token: CancellationToken,
     join: Option<JoinHandle<()>>,
 }
 
-impl Default for Worker {
-    fn default() -> Self {
-        Self {
-            config: Config::default(),
+impl Worker {
+    pub fn new(config: Config, path: String) -> Self {
+        let mut worker = Self {
             sorted_segments: Arc::new(Mutex::new(SortedSegments::default())),
             rt: Runtime::new().unwrap(),
             token: CancellationToken::new(),
             join: None,
-        }
-    }
-}
+        };
 
-impl Worker {
-    pub fn start(mut self, path: String) -> Self {
-        assert!(self.join.is_none());
+        // Copy necessary objects
+        let sorted_segments = worker.sorted_segments.clone();
+        let token = worker.token.clone();
 
-        let config = self.config.clone();
-        let sorted_segments = self.sorted_segments.clone();
-        let token = self.token.clone();
+        worker.join =
+            get_youtube_id(path).and_then(|id| Some(worker.rt.spawn(Self::run(id, config, sorted_segments, token))));
 
-        self.join =
-            get_youtube_id(path).and_then(|id| Some(self.rt.spawn(Self::run(id, config, sorted_segments, token))));
-        self
+        worker
     }
 
     async fn run(id: String, config: Config, sorted_segments: Arc<Mutex<SortedSegments>>, token: CancellationToken) {
@@ -113,9 +106,9 @@ impl Worker {
 
 impl Drop for Worker {
     fn drop(&mut self) {
-        log::debug!("Dropping segments");
-        self.token.cancel();
         if let Some(join) = self.join.take() {
+            log::debug!("Stopping worker");
+            self.token.cancel();
             self.rt.block_on(join).unwrap();
         }
     }
