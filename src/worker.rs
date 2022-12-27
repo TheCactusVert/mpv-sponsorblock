@@ -41,12 +41,12 @@ impl Worker {
         let token = worker.token.clone();
 
         worker.join =
-            get_youtube_id(path).and_then(|id| Some(worker.rt.spawn(Self::run(id, config, sorted_segments, token))));
+            get_youtube_id(path).and_then(|id| Some(worker.rt.spawn(Self::run(config, id, sorted_segments, token))));
 
         worker
     }
 
-    async fn run(id: String, config: Config, sorted_segments: Arc<Mutex<SortedSegments>>, token: CancellationToken) {
+    async fn run(config: Config, id: String, sorted_segments: Arc<Mutex<SortedSegments>>, token: CancellationToken) {
         select! {
             _ = token.cancelled() => {
                 log::warn!("Thread cancelled. Segments won't be retrieved");
