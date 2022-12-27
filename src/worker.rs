@@ -54,30 +54,32 @@ impl Worker {
     }
 
     async fn run(id: String, config: Config, sorted_segments: Arc<Mutex<SortedSegments>>, token: CancellationToken) {
-        let fut_segments = sponsorblock::fetch_segments(config, id);
+        select! {
+            _ = token.cancelled() => {
+                log::warn!("Thread cancelled. Segments won't be retrieved");
+            },
+            segments = sponsorblock::fetch_segments(config, id) => {
+                let mut segments = segments.unwrap_or_default();
 
-        let mut segments = select! {
-            _ = token.cancelled() => { log::error!("Thread cancelled"); return;},
-            s = fut_segments => s.unwrap_or_default(),
+                // Lock only when segments are found
+                let mut sorted_segments = sorted_segments.lock().unwrap();
+
+                // The sgments will be searched multiple times by seconds.
+                // It's more efficient to split them before.
+
+                (*sorted_segments).skippable = segments.drain_filter(|s| s.action == Action::Skip).collect();
+                log::info!("Found {} skippable segment(s)", (*sorted_segments).skippable.len());
+
+                (*sorted_segments).mutable = segments.drain_filter(|s| s.action == Action::Mute).collect();
+                log::info!("Found {} muttable segment(s)", (*sorted_segments).mutable.len());
+
+                (*sorted_segments).poi = segments.drain_filter(|s| s.action == Action::Poi).next();
+                log::info!("Highlight {}", if (*sorted_segments).poi.is_some() { "found" } else { "not found" });
+
+                (*sorted_segments).full = segments.drain_filter(|s| s.action == Action::Full).next();
+                log::info!("Category {}", if (*sorted_segments).full.is_some() { "found" } else { "not found" });
+            }
         };
-
-        // Lock only when segments are found
-        let mut s = sorted_segments.lock().unwrap();
-
-        // The sgments will be searched multiple times by seconds.
-        // It's more efficient to split them before.
-
-        (*s).skippable = segments.drain_filter(|s| s.action == Action::Skip).collect();
-        log::info!("Found {} skippable segment(s)", (*s).skippable.len());
-
-        (*s).mutable = segments.drain_filter(|s| s.action == Action::Mute).collect();
-        log::info!("Found {} muttable segment(s)", (*s).mutable.len());
-
-        (*s).poi = segments.drain_filter(|s| s.action == Action::Poi).next();
-        log::info!("Highlight {}", if (*s).poi.is_some() { "found" } else { "not found" });
-
-        (*s).full = segments.drain_filter(|s| s.action == Action::Full).next();
-        log::info!("Category {}", if (*s).full.is_some() { "found" } else { "not found" });
     }
 
     pub fn get_skip_segment(&self, time_pos: f64) -> Option<Segment> {
