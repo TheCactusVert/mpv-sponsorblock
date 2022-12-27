@@ -2,6 +2,7 @@ use crate::sponsorblock::action::Action;
 use crate::sponsorblock::category::Category;
 
 use std::collections::HashSet;
+use std::io::{Error, ErrorKind};
 
 use serde_derive::Deserialize;
 
@@ -33,13 +34,20 @@ impl Config {
 impl Default for Config {
     fn default() -> Self {
         dirs::config_dir()
-            .and_then(|dir| std::fs::read_to_string(dir.join("mpv/sponsorblock.toml")).ok())
-            .and_then(|data| toml::from_str(&data).ok())
-            .unwrap_or(Self {
-                server_address: Self::default_server_address(),
-                categories: HashSet::default(),
-                action_types: HashSet::default(),
-                privacy_api: bool::default(),
+            .ok_or(Error::new(
+                ErrorKind::NotFound,
+                "Configuration directory couldn't be found!",
+            ))
+            .and_then(|dir| std::fs::read_to_string(dir.join("mpv/sponsorblock.toml")))
+            .and_then(|data| toml::from_str(&data).map_err(|e| Error::new(ErrorKind::InvalidData, e)))
+            .unwrap_or_else(|e| {
+                log::warn!("{}", e);
+                Self {
+                    server_address: Self::default_server_address(),
+                    categories: HashSet::default(),
+                    action_types: HashSet::default(),
+                    privacy_api: bool::default(),
+                }
             })
     }
 }
