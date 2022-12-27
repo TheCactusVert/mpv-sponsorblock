@@ -43,16 +43,16 @@ impl Actions {
             // It's more efficient to split them before.
 
             (*s).skippable = segments.drain_filter(|s| s.action == Action::Skip).collect();
-            log::debug!("Found {} skippable segment(s).", (*s).skippable.len());
+            log::info!("Found {} skippable segment(s).", (*s).skippable.len());
 
             (*s).mutable = segments.drain_filter(|s| s.action == Action::Mute).collect();
-            log::debug!("Found {} muttable segment(s).", (*s).mutable.len());
+            log::info!("Found {} muttable segment(s).", (*s).mutable.len());
 
             (*s).poi = segments.drain_filter(|s| s.action == Action::Poi).next();
-            log::debug!("Highlight {}.", if (*s).poi.is_some() { "found" } else { "not found" });
+            log::info!("Highlight {}.", if (*s).poi.is_some() { "found" } else { "not found" });
 
             (*s).full = segments.drain_filter(|s| s.action == Action::Full).next();
-            log::debug!("Category {}.", if (*s).full.is_some() { "found" } else { "not found" });
+            log::info!("Category {}.", if (*s).full.is_some() { "found" } else { "not found" });
         }));
     }
 
