@@ -32,9 +32,10 @@ pub type Segments = Vec<Segment>;
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Video {
-    #[serde(rename = "videoID")]
-    pub video_id: String,
-    //pub hash: String,
+    //#[serde(rename = "videoID")]
+    //pub video_id: String,
+    #[serde(with = "hex")]
+    pub hash: [u8; 32],
     pub segments: Segments,
 }
 
@@ -57,8 +58,9 @@ impl Segment {
 
     pub(super) fn fetch_with_privacy(config: Config, id: String) -> Result<Segments> {
         let mut hasher = Sha256::new(); // create a Sha256 object
-        hasher.update(&id); // write input message
+        hasher.update(id); // write input message
         let hash = hasher.finalize(); // read hash digest and consume hasher
+        let hash = hash.as_slice();
 
         let mut url = config
             .server_address
@@ -74,7 +76,7 @@ impl Segment {
             .call()?
             .into_json::<Videos>()?
             .into_iter()
-            .find(|v| v.video_id == id)
+            .find(|v| v.hash == hash)
             .map_or(Segments::default(), |v| v.segments))
     }
 
