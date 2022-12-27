@@ -41,35 +41,41 @@ struct Video {
 type Videos = Vec<Video>;
 
 impl Segment {
-    pub(super) fn fetch(config: &Config, id: String) -> Result<Segments> {
-        Ok(ureq::get(&format!(
-            "{}/api/skipSegments?videoID={}&{}",
-            config.server_address,
-            id,
-            config.parameters(),
-        ))
-        .timeout(Duration::from_secs(5))
-        .call()?
-        .into_json::<Segments>()?)
+    pub(super) fn fetch(config: Config, id: String) -> Result<Segments> {
+        let mut url = config.server_address.join("/api/skipSegments")?;
+
+        url.query_pairs_mut()
+            .append_pair("videoID", &id)
+            .extend_pairs(config.categories.iter().map(|v| ("category", v.to_string())))
+            .extend_pairs(config.action_types.iter().map(|v| ("actionType", v.to_string())));
+
+        Ok(ureq::get(url.as_str())
+            .timeout(Duration::from_secs(5))
+            .call()?
+            .into_json::<Segments>()?)
     }
 
-    pub(super) fn fetch_with_privacy(config: &Config, id: String) -> Result<Segments> {
+    pub(super) fn fetch_with_privacy(config: Config, id: String) -> Result<Segments> {
         let mut hasher = Sha256::new(); // create a Sha256 object
         hasher.update(&id); // write input message
         let hash = hasher.finalize(); // read hash digest and consume hasher
 
-        Ok(ureq::get(&format!(
-            "{}/api/skipSegments/{:.4}?{}",
-            config.server_address,
-            hex::encode(hash),
-            config.parameters()
-        ))
-        .timeout(Duration::from_secs(5))
-        .call()?
-        .into_json::<Videos>()?
-        .into_iter()
-        .find(|v| v.video_id == id)
-        .map_or(Segments::default(), |v| v.segments))
+        let mut url = config
+            .server_address
+            .join("/api/skipSegments/")?
+            .join(&hex::encode(hash)[0..4])?;
+
+        url.query_pairs_mut()
+            .extend_pairs(config.categories.iter().map(|v| ("category", v.to_string())))
+            .extend_pairs(config.action_types.iter().map(|v| ("actionType", v.to_string())));
+
+        Ok(ureq::get(url.as_str())
+            .timeout(Duration::from_secs(5))
+            .call()?
+            .into_json::<Videos>()?
+            .into_iter()
+            .find(|v| v.video_id == id)
+            .map_or(Segments::default(), |v| v.segments))
     }
 
     pub fn is_in_segment(&self, time: f64) -> bool {

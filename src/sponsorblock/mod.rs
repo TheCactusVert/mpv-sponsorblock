@@ -16,7 +16,7 @@ use ureq::Error::Status;
     convert = r#"{ id.clone() }"#,
     option = true
 )]
-pub fn fetch_segments(config: &Config, id: String) -> Option<Segments> {
+pub fn fetch_segments(config: Config, id: String) -> Option<Segments> {
     match if config.privacy_api {
         log::debug!("Getting segments for video {} with extra privacy", id);
         Segment::fetch_with_privacy(config, id)

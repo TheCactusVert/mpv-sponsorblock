@@ -34,7 +34,7 @@ impl Actions {
         };
 
         self.handle = Some(thread::spawn(move || {
-            let mut segments = sponsorblock::fetch_segments(&config, id).unwrap_or_default();
+            let mut segments = sponsorblock::fetch_segments(config, id).unwrap_or_default();
 
             // Lock only when segments are found
             let mut s = inner_self.lock().unwrap();

@@ -5,25 +5,17 @@ use std::collections::HashSet;
 use std::io::{Error, ErrorKind};
 
 use serde_derive::Deserialize;
+use url::Url;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
-    pub server_address: String,
+    pub server_address: Url,
     #[serde(default)]
-    categories: HashSet<Category>,
+    pub categories: HashSet<Category>,
     #[serde(default)]
-    action_types: HashSet<Action>,
+    pub action_types: HashSet<Action>,
     #[serde(default)]
     pub privacy_api: bool,
-}
-
-impl Config {
-    pub fn parameters(&self) -> String {
-        let categories = self.categories.iter().map(|v| format!("category={}", v));
-        let action_types = self.action_types.iter().map(|v| format!("actionType={}", v));
-
-        categories.chain(action_types).collect::<Vec<String>>().join("&")
-    }
 }
 
 impl Default for Config {
