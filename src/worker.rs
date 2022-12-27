@@ -22,7 +22,7 @@ struct SortedSegments {
 
 pub struct Worker {
     config: Config,
-    segments: Arc<Mutex<SortedSegments>>,
+    sorted_segments: Arc<Mutex<SortedSegments>>,
     rt: Runtime,
     token: CancellationToken,
     join: Option<JoinHandle<()>>,
@@ -32,7 +32,7 @@ impl Default for Worker {
     fn default() -> Self {
         Self {
             config: Config::default(),
-            segments: Arc::new(Mutex::new(SortedSegments::default())),
+            sorted_segments: Arc::new(Mutex::new(SortedSegments::default())),
             rt: Runtime::new().unwrap(),
             token: CancellationToken::new(),
             join: None,
@@ -41,19 +41,23 @@ impl Default for Worker {
 }
 
 impl Worker {
-    pub fn start(&mut self, path: String) {
+    pub fn start(mut self, path: String) -> Self {
+        assert!(self.join.is_none());
+
         let config = self.config.clone();
-        let inner_self = self.segments.clone();
+        let sorted_segments = self.sorted_segments.clone();
         let token = self.token.clone();
 
-        self.join = get_youtube_id(path).and_then(|id| Some(self.rt.spawn(Self::run(id, config, inner_self, token))));
+        self.join =
+            get_youtube_id(path).and_then(|id| Some(self.rt.spawn(Self::run(id, config, sorted_segments, token))));
+        self
     }
 
     async fn run(id: String, config: Config, sorted_segments: Arc<Mutex<SortedSegments>>, token: CancellationToken) {
         let fut_segments = sponsorblock::fetch_segments(config, id);
 
         let mut segments = select! {
-            _ = token.cancelled() => return,
+            _ = token.cancelled() => { log::error!("Thread cancelled"); return;},
             s = fut_segments => s.unwrap_or_default(),
         };
 
@@ -76,18 +80,8 @@ impl Worker {
         log::info!("Category {}", if (*s).full.is_some() { "found" } else { "not found" });
     }
 
-    pub fn cancel(&mut self) {
-        self.token.cancel();
-    }
-
-    pub fn join(&mut self) {
-        if let Some(join) = self.join.take() {
-            self.rt.block_on(join);
-        }
-    }
-
     pub fn get_skip_segment(&self, time_pos: f64) -> Option<Segment> {
-        self.segments
+        self.sorted_segments
             .lock()
             .unwrap()
             .skippable
@@ -97,7 +91,7 @@ impl Worker {
     }
 
     pub fn get_mute_segment(&self, time_pos: f64) -> Option<Segment> {
-        self.segments
+        self.sorted_segments
             .lock()
             .unwrap()
             .mutable
@@ -107,10 +101,20 @@ impl Worker {
     }
 
     pub fn get_video_poi(&self) -> Option<f64> {
-        self.segments.lock().unwrap().poi.as_ref().map(|s| s.segment[0])
+        self.sorted_segments.lock().unwrap().poi.as_ref().map(|s| s.segment[0])
     }
 
     pub fn get_video_category(&self) -> Option<Category> {
-        self.segments.lock().unwrap().full.as_ref().map(|s| s.category)
+        self.sorted_segments.lock().unwrap().full.as_ref().map(|s| s.category)
+    }
+}
+
+impl Drop for Worker {
+    fn drop(&mut self) {
+        log::debug!("Dropping segments");
+        self.token.cancel();
+        if let Some(join) = self.join.take() {
+            self.rt.block_on(join);
+        }
     }
 }

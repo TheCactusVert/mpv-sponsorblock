@@ -92,7 +92,7 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
     log::debug!("Starting plugin SponsorBlock [{}]!", mpv.client_name());
 
     // Create SponsorBlock worker
-    let mut worker = Worker::default();
+    let mut worker: Option<Worker> = None;
 
     // Boolean to check if we are currently in a mutted segment
     let mut mute_segment: Option<Segment> = None;
@@ -113,14 +113,14 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
             Event::StartFile(_) => {
                 log::trace!("Received start-file event");
                 mute_segment = None;
-                worker.start(mpv.get_property::<String>(NAME_PROP_PATH).unwrap());
+                worker = Some(Worker::default().start(mpv.get_property::<String>(NAME_PROP_PATH).unwrap()));
             }
             Event::PropertyChange(REPL_PROP_TIME, data) => {
                 log::trace!("Received {} on reply {}", data.name(), REPL_PROP_TIME);
                 if let Some(time_pos) = data.data::<f64>() {
-                    if let Some(s) = worker.get_skip_segment(time_pos) {
+                    if let Some(s) = worker.as_ref().and_then(|w| w.get_skip_segment(time_pos)) {
                         skip(&mpv, s); // Skip segments are priority
-                    } else if let Some(s) = worker.get_mute_segment(time_pos) {
+                    } else if let Some(s) = worker.as_ref().and_then(|w| w.get_mute_segment(time_pos)) {
                         mute(&mpv, s.clone(), &mute_segment, &mut mute_sponsorblock);
                         mute_segment = Some(s);
                     } else {
@@ -138,11 +138,10 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
             Event::EndFile => {
                 log::trace!("Received end-file event");
                 unmute(&mpv, &mute_segment, &mut mute_sponsorblock);
-                worker.cancel();
             }
             Event::Hook(REPL_HOOK_END, data) => {
                 log::trace!("Received {}", data.name());
-                worker.join(); // Blocking action, so we use a hook
+                worker = None; // Drop. Blocking action, so we use a hook
                 mpv.hook_continue(data.id()).unwrap();
             }
             Event::Shutdown => {
