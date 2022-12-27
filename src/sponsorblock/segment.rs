@@ -1,9 +1,9 @@
-use std::time::Duration;
-
 use crate::config::Config;
 
 use super::action::Action;
 use super::category::Category;
+
+use std::time::Duration;
 
 use serde_derive::Deserialize;
 use sha2::{Digest, Sha256};
@@ -41,7 +41,7 @@ struct Video {
 type Videos = Vec<Video>;
 
 impl Segment {
-    pub(super) fn fetch(config: &Config, id: String) -> Result<Option<Segments>> {
+    pub(super) fn fetch(config: &Config, id: String) -> Result<Segments> {
         Ok(ureq::get(&format!(
             "{}/api/skipSegments?videoID={}&{}",
             config.server_address,
@@ -50,16 +50,15 @@ impl Segment {
         ))
         .timeout(Duration::from_secs(5))
         .call()?
-        .into_json::<Segments>()
-        .ok())
+        .into_json::<Segments>()?)
     }
 
-    pub(super) fn fetch_with_privacy(config: &Config, id: String) -> Result<Option<Segments>> {
+    pub(super) fn fetch_with_privacy(config: &Config, id: String) -> Result<Segments> {
         let mut hasher = Sha256::new(); // create a Sha256 object
         hasher.update(&id); // write input message
         let hash = hasher.finalize(); // read hash digest and consume hasher
 
-        let videos = ureq::get(&format!(
+        Ok(ureq::get(&format!(
             "{}/api/skipSegments/{:.4}?{}",
             config.server_address,
             hex::encode(hash),
@@ -67,12 +66,10 @@ impl Segment {
         ))
         .timeout(Duration::from_secs(5))
         .call()?
-        .into_json::<Videos>()?;
-
-        Ok(videos
-            .into_iter()
-            .find(|v| v.video_id == id)
-            .and_then(|v| Some(v.segments)))
+        .into_json::<Videos>()?
+        .into_iter()
+        .find(|v| v.video_id == id)
+        .map_or(Segments::default(), |v| v.segments))
     }
 
     pub fn is_in_segment(&self, time: f64) -> bool {

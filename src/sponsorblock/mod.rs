@@ -24,7 +24,7 @@ pub fn fetch_segments(config: &Config, id: String) -> Option<Segments> {
         log::debug!("Getting segments for video {}", id);
         Segment::fetch(config, id)
     } {
-        Ok(v) => v,
+        Ok(v) => Some(v),
         Err(Status(404, _)) => None,
         Err(e) => {
             log::error!("Failed to get segments: {}", e);
