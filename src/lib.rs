@@ -138,6 +138,7 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
             Event::EndFile => {
                 log::trace!("Received end-file event");
                 unmute(&mpv, &mute_segment, &mut mute_sponsorblock);
+                worker.cancel();
             }
             Event::Hook(REPL_HOOK_END, data) => {
                 log::trace!("Received {}", data.name());

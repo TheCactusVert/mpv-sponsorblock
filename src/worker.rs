@@ -46,39 +46,42 @@ impl Worker {
         let inner_self = self.segments.clone();
         let token = self.token.clone();
 
-        self.join = get_youtube_id(path).and_then(|id| {
-            Some(self.rt.spawn(async move {
-                let fut_segments = sponsorblock::fetch_segments(config, id);
+        self.join = get_youtube_id(path).and_then(|id| Some(self.rt.spawn(Self::run(id, config, inner_self, token))));
+    }
 
-                let mut segments = select! {
-                    _ = token.cancelled() => return,
-                    s = fut_segments => s.unwrap_or_default(),
-                };
+    async fn run(id: String, config: Config, sorted_segments: Arc<Mutex<SortedSegments>>, token: CancellationToken) {
+        let fut_segments = sponsorblock::fetch_segments(config, id);
 
-                // Lock only when segments are found
-                let mut s = inner_self.lock().unwrap();
+        let mut segments = select! {
+            _ = token.cancelled() => return,
+            s = fut_segments => s.unwrap_or_default(),
+        };
 
-                // The sgments will be searched multiple times by seconds.
-                // It's more efficient to split them before.
+        // Lock only when segments are found
+        let mut s = sorted_segments.lock().unwrap();
 
-                (*s).skippable = segments.drain_filter(|s| s.action == Action::Skip).collect();
-                log::info!("Found {} skippable segment(s)", (*s).skippable.len());
+        // The sgments will be searched multiple times by seconds.
+        // It's more efficient to split them before.
 
-                (*s).mutable = segments.drain_filter(|s| s.action == Action::Mute).collect();
-                log::info!("Found {} muttable segment(s)", (*s).mutable.len());
+        (*s).skippable = segments.drain_filter(|s| s.action == Action::Skip).collect();
+        log::info!("Found {} skippable segment(s)", (*s).skippable.len());
 
-                (*s).poi = segments.drain_filter(|s| s.action == Action::Poi).next();
-                log::info!("Highlight {}", if (*s).poi.is_some() { "found" } else { "not found" });
+        (*s).mutable = segments.drain_filter(|s| s.action == Action::Mute).collect();
+        log::info!("Found {} muttable segment(s)", (*s).mutable.len());
 
-                (*s).full = segments.drain_filter(|s| s.action == Action::Full).next();
-                log::info!("Category {}", if (*s).full.is_some() { "found" } else { "not found" });
-            }))
-        });
+        (*s).poi = segments.drain_filter(|s| s.action == Action::Poi).next();
+        log::info!("Highlight {}", if (*s).poi.is_some() { "found" } else { "not found" });
+
+        (*s).full = segments.drain_filter(|s| s.action == Action::Full).next();
+        log::info!("Category {}", if (*s).full.is_some() { "found" } else { "not found" });
+    }
+
+    pub fn cancel(&mut self) {
+        self.token.cancel();
     }
 
     pub fn join(&mut self) {
         if let Some(join) = self.join.take() {
-            self.token.cancel();
             self.rt.block_on(join);
         }
     }
