@@ -48,7 +48,7 @@ impl Segment {
             id,
             config.parameters(),
         ))
-        .timeout(Duration::from_secs(1))
+        .timeout(Duration::from_secs(5))
         .call()?
         .into_json::<Segments>()
         .ok())
@@ -65,7 +65,7 @@ impl Segment {
             hex::encode(hash),
             config.parameters()
         ))
-        .timeout(Duration::from_secs(1))
+        .timeout(Duration::from_secs(5))
         .call()?
         .into_json::<Videos>()?;
 
