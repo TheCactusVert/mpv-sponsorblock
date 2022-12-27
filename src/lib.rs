@@ -26,8 +26,10 @@ const REPL_HOOK_END: u64 = 3;
 const PRIO_HOOK_NONE: i32 = 0;
 
 fn skip(mpv: &Handle, working_segment: Segment) {
-    log::info!("Skipping {}", working_segment);
     mpv.set_property(NAME_PROP_TIME, working_segment.segment[1]).unwrap();
+    log::info!("Skipped {}", working_segment);
+    mpv.osd_message(format!("Skipped {}", working_segment), Duration::from_secs(8))
+        .unwrap();
 }
 
 fn mute(mpv: &Handle, working_segment: Segment, current_segment: &Option<Segment>, mute_sponsorblock: &mut bool) {
@@ -41,8 +43,8 @@ fn mute(mpv: &Handle, working_segment: Segment, current_segment: &Option<Segment
 
     // If muted by the plugin do it again just for the log or if not muted do it
     if *mute_sponsorblock || mpv.get_property::<String>(NAME_PROP_MUTE).unwrap() != "yes" {
-        log::info!("Mutting {}", working_segment);
         mpv.set_property(NAME_PROP_MUTE, "yes".to_string()).unwrap();
+        log::info!("Mutting {}", working_segment);
         mpv.osd_message(format!("Mutting {}", working_segment), Duration::from_secs(8))
             .unwrap();
         *mute_sponsorblock = true;
@@ -59,8 +61,8 @@ fn unmute(mpv: &Handle, current_segment: &Option<Segment>, mute_sponsorblock: &m
 
     // If muted the by plugin then unmute
     if *mute_sponsorblock {
-        log::info!("Unmutting");
         mpv.set_property(NAME_PROP_MUTE, "no".to_string()).unwrap();
+        log::info!("Unmutting");
         *mute_sponsorblock = false;
     } else {
         log::info!("Muttable segment(s) ended but mute value was modified. Ignoring");
@@ -112,15 +114,6 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
                 log::trace!("Received start-file event");
                 mute_segment = None;
                 actions.start(mpv.get_property::<String>(NAME_PROP_PATH).unwrap());
-            }
-            Event::FileLoaded => {
-                log::trace!("Received file-loaded event");
-                if let Some(c) = actions.get_video_category() {
-                    mpv.osd_message(
-                        format!("This entire video is labeled as '{}' and is too tightly integrated to be able to separate", c),
-                        Duration::from_secs(10)
-                    ).unwrap();
-                }
             }
             Event::PropertyChange(REPL_PROP_TIME, data) => {
                 log::trace!("Received {} on reply {}", data.name(), REPL_PROP_TIME);
