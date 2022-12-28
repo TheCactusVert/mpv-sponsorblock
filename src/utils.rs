@@ -1,8 +1,10 @@
 use regex::Regex;
 
 pub fn get_youtube_id<S: AsRef<str>>(path: S) -> Option<String> {
-    // I don't uderstand this crap but it's working (almost)
-    let regex = Regex::new(r"https?://(?:www\.)?(?:youtu\.be|youtube\.com|piped\.kavin\.rocks)/(?:v/|watch\?v=|embed/)?([A-Za-z0-9-_]{11})").ok()?;
+    let regex = Regex::new(
+        r"https?://(?:(?:www\.|m\.|)youtube\.com|(?:www\.|)youtu\.be).*(?:/|%3D|v=|vi=)([0-9A-z-_]{11})(?:[%#?&]|$)",
+    )
+    .ok()?;
     let capture = regex.captures(path.as_ref())?;
     capture.get(1).map(|m| m.as_str().to_string())
 }
@@ -43,10 +45,6 @@ mod tests {
         );
         assert_eq!(
             get_youtube_id("https://www.youtube.com/embed/dQw4w9WgXcQ"),
-            Some("dQw4w9WgXcQ".to_string())
-        );
-        assert_eq!(
-            get_youtube_id("https://piped.kavin.rocks/watch?v=dQw4w9WgXcQ"),
             Some("dQw4w9WgXcQ".to_string())
         );
         assert_eq!(get_youtube_id("file:///home/me/videos/some_video_file.mkv"), None);
