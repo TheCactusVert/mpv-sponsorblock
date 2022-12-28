@@ -47,7 +47,7 @@ impl Segment {
             .extend_pairs(config.categories.iter().map(|v| ("category", v.to_string())))
             .extend_pairs(config.action_types.iter().map(|v| ("actionType", v.to_string())));
 
-        Ok(reqwest::get(url).await?.json::<Segments>().await?)
+        Ok(reqwest::get(url).await?.error_for_status()?.json::<Segments>().await?)
     }
 
     pub(super) async fn fetch_with_privacy(config: Config, id: String) -> Result<Segments> {
@@ -69,6 +69,7 @@ impl Segment {
 
         Ok(reqwest::get(url)
             .await?
+            .error_for_status()?
             .json::<Videos>()
             .await?
             .into_iter()
