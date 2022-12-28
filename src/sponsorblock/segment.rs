@@ -40,7 +40,7 @@ type Videos = Vec<Video>;
 
 impl Segment {
     pub(super) async fn fetch(config: Config, id: String) -> Result<Segments> {
-        let mut url = config.server_address.join("/api/skipSegments").unwrap(); // TODO pas de unwrap
+        let mut url = config.server_address.join("/api/skipSegments").unwrap();
 
         url.query_pairs_mut()
             .append_pair("videoID", &id)
@@ -59,7 +59,7 @@ impl Segment {
         let mut url = config
             .server_address
             .join("/api/skipSegments/")
-            .unwrap() // TODO pas de unwrap
+            .unwrap()
             .join(&hex::encode(hash)[0..4])
             .unwrap();
 
