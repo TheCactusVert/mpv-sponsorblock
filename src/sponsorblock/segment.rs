@@ -54,7 +54,6 @@ impl Segment {
         let mut hasher = Sha256::new(); // create a Sha256 object
         hasher.update(id); // write input message
         let hash = hasher.finalize(); // read hash digest and consume hasher
-        let hash = hash.as_slice();
 
         let mut url = config
             .server_address
@@ -73,7 +72,7 @@ impl Segment {
             .json::<Videos>()
             .await?
             .into_iter()
-            .find(|v| v.hash == hash)
+            .find(|v| v.hash == hash.as_slice())
             .map_or(Segments::default(), |v| v.segments))
     }
 
