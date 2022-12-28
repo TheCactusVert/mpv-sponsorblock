@@ -8,7 +8,7 @@ mod worker;
 
 use config::Config;
 use mpv_client::{mpv_handle, Event, Handle};
-use sponsorblock::segment::Segment;
+use sponsorblock::Segment;
 use worker::Worker;
 
 use std::time::Duration;

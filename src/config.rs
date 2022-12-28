@@ -1,5 +1,5 @@
-use crate::sponsorblock::action::Action;
-use crate::sponsorblock::category::Category;
+use crate::sponsorblock::Action;
+use crate::sponsorblock::Category;
 
 use std::collections::HashSet;
 use std::io::{Error, ErrorKind};

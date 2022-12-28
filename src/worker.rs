@@ -1,8 +1,5 @@
 use crate::config::Config;
-use crate::sponsorblock;
-use crate::sponsorblock::action::Action;
-use crate::sponsorblock::category::Category;
-use crate::sponsorblock::segment::{Segment, Segments};
+use crate::sponsorblock::{self, *};
 use crate::utils::get_youtube_id;
 
 use std::sync::{Arc, Mutex};
@@ -53,7 +50,7 @@ impl Worker {
             _ = token.cancelled() => {
                 log::warn!("Thread cancelled. Segments won't be retrieved");
             },
-            segments = sponsorblock::fetch_segments(config, id) => {
+            segments = sponsorblock::fetch(config, id) => {
                 let mut segments = segments.unwrap_or_default();
 
                 // Lock only when segments are found

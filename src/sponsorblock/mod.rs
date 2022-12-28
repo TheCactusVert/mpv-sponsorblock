@@ -1,10 +1,12 @@
-pub mod action;
-pub mod category;
-pub mod segment;
+mod action;
+mod category;
+mod segment;
 
 use crate::config::Config;
 
-use segment::{Segment, Segments};
+pub use action::Action;
+pub use category::Category;
+pub use segment::{Segment, Segments};
 
 use cached::proc_macro::cached;
 use cached::SizedCache;
@@ -16,11 +18,11 @@ use reqwest::StatusCode;
     convert = r#"{ id.clone() }"#,
     option = true
 )]
-pub async fn fetch_segments(config: Config, id: String) -> Option<Segments> {
+pub async fn fetch(config: Config, id: String) -> Option<Segments> {
     let segments = if config.privacy_api {
-        Segment::fetch_with_privacy(config, id).await
+        Segment::fetch_with_privacy(config.server_address, id, config.categories, config.action_types).await
     } else {
-        Segment::fetch(config, id).await
+        Segment::fetch(config.server_address, id, config.categories, config.action_types).await
     };
 
     match segments {

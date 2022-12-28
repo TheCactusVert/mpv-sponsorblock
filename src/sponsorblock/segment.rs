@@ -1,11 +1,10 @@
-use crate::config::Config;
-
-use super::action::Action;
-use super::category::Category;
+use super::Action;
+use super::Category;
 
 use reqwest::Result;
 use serde_derive::Deserialize;
 use sha2::{Digest, Sha256};
+use url::Url;
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -39,32 +38,44 @@ struct Video {
 type Videos = Vec<Video>;
 
 impl Segment {
-    pub(super) async fn fetch(config: Config, id: String) -> Result<Segments> {
-        let mut url = config.server_address.join("/api/skipSegments").unwrap();
+    pub(super) async fn fetch<C, A>(server_address: Url, id: String, categories: C, action_types: A) -> Result<Segments>
+    where
+        C: IntoIterator<Item = Category>,
+        A: IntoIterator<Item = Action>,
+    {
+        let mut url = server_address.join("/api/skipSegments").unwrap();
 
         url.query_pairs_mut()
             .append_pair("videoID", &id)
-            .extend_pairs(config.categories.iter().map(|v| ("category", v.to_string())))
-            .extend_pairs(config.action_types.iter().map(|v| ("actionType", v.to_string())));
+            .extend_pairs(categories.into_iter().map(|v| ("category", v.to_string())))
+            .extend_pairs(action_types.into_iter().map(|v| ("actionType", v.to_string())));
 
         Ok(reqwest::get(url).await?.error_for_status()?.json::<Segments>().await?)
     }
 
-    pub(super) async fn fetch_with_privacy(config: Config, id: String) -> Result<Segments> {
+    pub(super) async fn fetch_with_privacy<C, A>(
+        server_address: Url,
+        id: String,
+        categories: C,
+        action_types: A,
+    ) -> Result<Segments>
+    where
+        C: IntoIterator<Item = Category>,
+        A: IntoIterator<Item = Action>,
+    {
         let mut hasher = Sha256::new(); // create a Sha256 object
         hasher.update(id); // write input message
         let hash = hasher.finalize(); // read hash digest and consume hasher
 
-        let mut url = config
-            .server_address
+        let mut url = server_address
             .join("/api/skipSegments/")
             .unwrap()
             .join(&hex::encode(hash)[0..4])
             .unwrap();
 
         url.query_pairs_mut()
-            .extend_pairs(config.categories.iter().map(|v| ("category", v.to_string())))
-            .extend_pairs(config.action_types.iter().map(|v| ("actionType", v.to_string())));
+            .extend_pairs(categories.into_iter().map(|v| ("category", v.to_string())))
+            .extend_pairs(action_types.into_iter().map(|v| ("actionType", v.to_string())));
 
         Ok(reqwest::get(url)
             .await?
