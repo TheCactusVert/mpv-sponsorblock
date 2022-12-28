@@ -77,7 +77,7 @@ impl Segment {
     }
 
     pub fn is_in_segment(&self, time: f64) -> bool {
-        time >= self.segment[0] && time < self.segment[1]
+        time >= self.segment[0] && time < (self.segment[1] - 0.1_f64)
     }
 }
 
