@@ -48,7 +48,7 @@ impl Worker {
     async fn run(config: Config, id: String, sorted_segments: Arc<Mutex<SortedSegments>>, token: CancellationToken) {
         select! {
             _ = token.cancelled() => {
-                log::warn!("Thread cancelled. Segments won't be retrieved");
+                log::debug!("Thread cancelled. Segments couldn't be retrieved in time");
             },
             segments = sponsorblock::fetch(config.server_address, config.privacy_api, id, config.categories, config.action_types) => {
                 let mut segments = segments.unwrap_or_default();
