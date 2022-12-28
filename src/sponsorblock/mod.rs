@@ -6,8 +6,7 @@ pub use action::Action;
 pub use category::Category;
 pub use segment::{Segment, Segments};
 
-use reqwest::StatusCode;
-use url::Url;
+use reqwest::{StatusCode, Url};
 
 pub async fn fetch<C, A>(
     server_address: Url,

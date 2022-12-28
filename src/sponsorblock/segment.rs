@@ -1,10 +1,9 @@
 use super::Action;
 use super::Category;
 
-use reqwest::Result;
+use reqwest::{Result, Url};
 use serde_derive::Deserialize;
 use sha2::{Digest, Sha256};
-use url::Url;
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]

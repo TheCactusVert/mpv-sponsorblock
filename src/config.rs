@@ -4,8 +4,8 @@ use crate::sponsorblock::Category;
 use std::collections::HashSet;
 use std::io::{Error, ErrorKind};
 
+use reqwest::Url;
 use serde_derive::Deserialize;
-use url::Url;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
