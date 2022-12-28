@@ -36,12 +36,14 @@ impl Worker {
             join: None,
         };
 
-        // Copy necessary objects
-        let sorted_segments = worker.sorted_segments.clone();
-        let token = worker.token.clone();
-
-        worker.join =
-            get_youtube_id(path).and_then(|id| Some(worker.rt.spawn(Self::run(config, id, sorted_segments, token))));
+        worker.join = get_youtube_id(path).and_then(|id| {
+            Some(worker.rt.spawn(Self::run(
+                config,
+                id,
+                worker.sorted_segments.clone(),
+                worker.token.clone(),
+            )))
+        });
 
         worker
     }
