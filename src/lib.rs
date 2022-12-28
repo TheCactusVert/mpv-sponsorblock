@@ -24,8 +24,8 @@ const REPL_PROP_MUTE: u64 = 2;
 
 fn skip(mpv: &Handle, working_segment: Segment) {
     mpv.set_property(NAME_PROP_TIME, working_segment.segment[1]).unwrap();
-    log::info!("Skipped {}", working_segment);
-    mpv.osd_message(format!("Skipped {}", working_segment), Duration::from_secs(8))
+    log::info!("Skipped segment {}", working_segment);
+    mpv.osd_message(format!("Skipped segment {}", working_segment), Duration::from_secs(8))
         .unwrap();
 }
 
@@ -41,8 +41,8 @@ fn mute(mpv: &Handle, working_segment: Segment, current_segment: &Option<Segment
     // If muted by the plugin do it again just for the log or if not muted do it
     if *mute_sponsorblock || mpv.get_property::<String>(NAME_PROP_MUTE).unwrap() != "yes" {
         mpv.set_property(NAME_PROP_MUTE, "yes".to_string()).unwrap();
-        log::info!("Mutting {}", working_segment);
-        mpv.osd_message(format!("Mutting {}", working_segment), Duration::from_secs(8))
+        log::info!("Mutting segment {}", working_segment);
+        mpv.osd_message(format!("Mutting segment {}", working_segment), Duration::from_secs(8))
             .unwrap();
         *mute_sponsorblock = true;
     } else {
