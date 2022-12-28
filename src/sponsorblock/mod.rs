@@ -2,27 +2,28 @@ mod action;
 mod category;
 mod segment;
 
-use crate::config::Config;
-
 pub use action::Action;
 pub use category::Category;
 pub use segment::{Segment, Segments};
 
-use cached::proc_macro::cached;
-use cached::SizedCache;
 use reqwest::StatusCode;
+use url::Url;
 
-#[cached(
-    type = "SizedCache<String, Segments>",
-    create = "{ SizedCache::with_size(10) }",
-    convert = r#"{ id.clone() }"#,
-    option = true
-)]
-pub async fn fetch(config: Config, id: String) -> Option<Segments> {
-    let segments = if config.privacy_api {
-        Segment::fetch_with_privacy(config.server_address, id, config.categories, config.action_types).await
+pub async fn fetch<C, A>(
+    server_address: Url,
+    privacy_api: bool,
+    id: String,
+    categories: C,
+    action_types: A,
+) -> Option<Segments>
+where
+    C: IntoIterator<Item = Category>,
+    A: IntoIterator<Item = Action>,
+{
+    let segments = if privacy_api {
+        Segment::fetch_with_privacy(server_address, id, categories, action_types).await
     } else {
-        Segment::fetch(config.server_address, id, config.categories, config.action_types).await
+        Segment::fetch(server_address, id, categories, action_types).await
     };
 
     match segments {

@@ -50,7 +50,7 @@ impl Worker {
             _ = token.cancelled() => {
                 log::warn!("Thread cancelled. Segments won't be retrieved");
             },
-            segments = sponsorblock::fetch(config, id) => {
+            segments = sponsorblock::fetch(config.server_address, config.privacy_api, id, config.categories, config.action_types) => {
                 let mut segments = segments.unwrap_or_default();
 
                 // Lock only when segments are found
