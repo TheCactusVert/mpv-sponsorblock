@@ -1,9 +1,11 @@
 use super::Action;
 use super::Category;
 
-use reqwest::{Result, Url};
+use reqwest::{Client, Result, Url};
 use serde_derive::Deserialize;
 use sha2::{Digest, Sha256};
+
+static USER_AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0";
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -49,7 +51,15 @@ impl Segment {
             .extend_pairs(categories.into_iter().map(|v| ("category", v.to_string())))
             .extend_pairs(action_types.into_iter().map(|v| ("actionType", v.to_string())));
 
-        Ok(reqwest::get(url).await?.error_for_status()?.json::<Segments>().await?)
+        let req = Client::builder()
+            .user_agent(USER_AGENT)
+            .build()?
+            .get(url)
+            .send()
+            .await?
+            .error_for_status()?;
+
+        Ok(req.json::<Segments>().await?)
     }
 
     pub(super) async fn fetch_with_privacy<C, A>(
@@ -76,9 +86,15 @@ impl Segment {
             .extend_pairs(categories.into_iter().map(|v| ("category", v.to_string())))
             .extend_pairs(action_types.into_iter().map(|v| ("actionType", v.to_string())));
 
-        Ok(reqwest::get(url)
+        let req = Client::builder()
+            .user_agent(USER_AGENT)
+            .build()?
+            .get(url)
+            .send()
             .await?
-            .error_for_status()?
+            .error_for_status()?;
+
+        Ok(req
             .json::<Videos>()
             .await?
             .into_iter()
