@@ -19,8 +19,8 @@ pub struct Segment {
     //pub locked: i64,
     //pub votes: i64,
     //pub video_duration: f64,
-    //#[serde(rename = "userID")]
-    //pub user_id: String,
+    //#[serde(rename = "userID", with = "hex")]
+    //pub user_id: [u8; 32],
     //pub description: String,
 }
 
