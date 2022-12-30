@@ -1,10 +1,10 @@
 use crate::config::Config;
-use crate::sponsorblock::Segment;
 use crate::worker::Worker;
 
 use std::time::Duration;
 
 use mpv_client::Handle;
+use sponsorblock_client::Segment;
 
 static NAME_PROP_PATH: &str = "path";
 static NAME_PROP_TIME: &str = "time-pos";

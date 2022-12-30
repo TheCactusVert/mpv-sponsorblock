@@ -2,7 +2,6 @@
 #![feature(if_let_guard)]
 
 mod config;
-mod sponsorblock;
 mod state;
 mod utils;
 mod worker;

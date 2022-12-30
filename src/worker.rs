@@ -1,9 +1,9 @@
 use crate::config::Config;
-use crate::sponsorblock::{self, *};
 use crate::utils::get_youtube_id;
 
 use std::sync::{Arc, Mutex};
 
+use sponsorblock_client::{self, *};
 use tokio::runtime::Runtime;
 use tokio::select;
 use tokio::task::JoinHandle;
@@ -46,7 +46,7 @@ impl Worker {
             _ = token.cancelled() => {
                 log::debug!("Thread cancelled. Segments couldn't be retrieved in time");
             },
-            segments = sponsorblock::fetch(config.server_address, config.privacy_api, id, config.categories, config.action_types) => {
+            segments = sponsorblock_client::fetch(config.server_address, config.privacy_api, id, config.categories, config.action_types) => {
                 let mut segments = segments.unwrap_or_default();
 
                 // Lock only when segments are found

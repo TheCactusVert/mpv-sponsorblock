@@ -1,11 +1,9 @@
-use crate::sponsorblock::Action;
-use crate::sponsorblock::Category;
-
 use std::collections::HashSet;
 use std::io::{Error, ErrorKind};
 
-use reqwest::Url;
 use serde_derive::Deserialize;
+use sponsorblock_client::{Action, Category};
+use url::Url;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
