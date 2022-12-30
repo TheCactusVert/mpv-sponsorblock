@@ -21,28 +21,24 @@ pub struct Worker {
     sorted_segments: Arc<Mutex<SortedSegments>>,
     rt: Runtime,
     token: CancellationToken,
-    join: Option<JoinHandle<()>>,
+    join: JoinHandle<()>,
 }
 
 impl Worker {
     pub fn new(config: Config, path: String) -> Option<Self> {
-        let id = get_youtube_id(path)?; // If not a YT video then stop
+        let id = get_youtube_id(path)?; // If not a YT video then do nothing
 
-        let mut worker = Self {
-            sorted_segments: Arc::new(Mutex::new(SortedSegments::default())),
-            rt: Runtime::new().unwrap(),
-            token: CancellationToken::new(),
-            join: None,
-        };
+        let sorted_segments = Arc::new(Mutex::new(SortedSegments::default()));
+        let rt = Runtime::new().unwrap();
+        let token = CancellationToken::new();
+        let join = rt.spawn(Self::run(config, id, sorted_segments.clone(), token.clone()));
 
-        worker.join = Some(worker.rt.spawn(Self::run(
-            config,
-            id,
-            worker.sorted_segments.clone(),
-            worker.token.clone(),
-        )));
-
-        Some(worker)
+        Some(Worker {
+            sorted_segments,
+            rt,
+            token,
+            join,
+        })
     }
 
     async fn run(config: Config, id: String, sorted_segments: Arc<Mutex<SortedSegments>>, token: CancellationToken) {
@@ -105,10 +101,8 @@ impl Worker {
 
 impl Drop for Worker {
     fn drop(&mut self) {
-        if let Some(join) = self.join.take() {
-            log::debug!("Stopping worker");
-            self.token.cancel();
-            self.rt.block_on(join).unwrap();
-        }
+        log::debug!("Stopping worker");
+        self.token.cancel();
+        self.rt.block_on(&mut self.join).unwrap();
     }
 }
