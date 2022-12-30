@@ -110,12 +110,9 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
             Event::StartFile(_) => {
                 log::trace!("Received start-file event");
                 mute_segment = None;
-                worker = Some(Worker::new(
-                    config.clone(),
-                    mpv.get_property::<String>(NAME_PROP_PATH).unwrap(),
-                ));
+                worker = Worker::new(config.clone(), mpv.get_property::<String>(NAME_PROP_PATH).unwrap());
             }
-            Event::PropertyChange(REPL_PROP_TIME, data) => {
+            Event::PropertyChange(REPL_PROP_TIME, data) if worker.is_some() => {
                 log::trace!("Received {} on reply {}", data.name(), REPL_PROP_TIME);
                 if let Some(time_pos) = data.data::<f64>() {
                     if let Some(s) = worker.as_ref().and_then(|w| w.get_skip_segment(time_pos)) {
@@ -129,13 +126,13 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
                     }
                 }
             }
-            Event::PropertyChange(REPL_PROP_MUTE, data) => {
+            Event::PropertyChange(REPL_PROP_MUTE, data) if worker.is_some() => {
                 log::trace!("Received {} on reply {}", data.name(), REPL_PROP_MUTE);
                 if let Some(mute) = data.data::<String>() {
                     user_mute(mute, &mut mute_sponsorblock);
                 }
             }
-            Event::EndFile => {
+            Event::EndFile if worker.is_some() => {
                 log::trace!("Received end-file event");
                 unmute(&mpv, &mute_segment, &mut mute_sponsorblock);
                 worker = None;

@@ -25,7 +25,9 @@ pub struct Worker {
 }
 
 impl Worker {
-    pub fn new(config: Config, path: String) -> Self {
+    pub fn new(config: Config, path: String) -> Option<Self> {
+        let id = get_youtube_id(path)?; // If not a YT video then stop
+
         let mut worker = Self {
             sorted_segments: Arc::new(Mutex::new(SortedSegments::default())),
             rt: Runtime::new().unwrap(),
@@ -33,16 +35,14 @@ impl Worker {
             join: None,
         };
 
-        worker.join = get_youtube_id(path).and_then(|id| {
-            Some(worker.rt.spawn(Self::run(
-                config,
-                id,
-                worker.sorted_segments.clone(),
-                worker.token.clone(),
-            )))
-        });
+        worker.join = Some(worker.rt.spawn(Self::run(
+            config,
+            id,
+            worker.sorted_segments.clone(),
+            worker.token.clone(),
+        )));
 
-        worker
+        Some(worker)
     }
 
     async fn run(config: Config, id: String, sorted_segments: Arc<Mutex<SortedSegments>>, token: CancellationToken) {
