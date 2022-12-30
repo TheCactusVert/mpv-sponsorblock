@@ -53,8 +53,6 @@ impl Segment {
             .extend_pairs(categories.into_iter().map(|v| ("category", v.to_string())))
             .extend_pairs(action_types.into_iter().map(|v| ("actionType", v.to_string())));
 
-        println!("URL: {}", url);
-
         let req = Client::builder()
             .user_agent(USER_AGENT)
             .build()?
