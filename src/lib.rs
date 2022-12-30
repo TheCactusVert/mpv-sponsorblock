@@ -34,19 +34,19 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
     loop {
         // Wait for MPV events indefinitely
         match mpv.wait_event(-1.) {
-            Event::StartFile(_) => {
+            Event::StartFile(_data) => {
                 log::trace!("Received start-file event");
                 state = State::new(&mpv, config.clone());
             }
             Event::PropertyChange(REPL_PROP_TIME, data) if let Some(state) = state.as_mut() => {
                 log::trace!("Received {} on reply {}", data.name(), REPL_PROP_TIME);
-                if let Some(time_pos) = data.data::<f64>() {
+                if let Some(time_pos) = data.data() {
                     state.time_change(&mpv, time_pos);
                 }
             }
             Event::PropertyChange(REPL_PROP_MUTE, data) if let Some(state) = state.as_mut() => {
                 log::trace!("Received {} on reply {}", data.name(), REPL_PROP_MUTE);
-                if let Some(mute) = data.data::<String>() {
+                if let Some(mute) = data.data() {
                     state.mute_change(mute);
                 }
             }
