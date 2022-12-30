@@ -58,6 +58,10 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
                 log::trace!("Received shutdown event");
                 return 0;
             }
+            Event::QueueOverflow => {
+                log::trace!("Received queue-overflow event");
+                // TODO Might be good to handle ??
+            }
             event => {
                 log::trace!("Ignoring {} event", event);
             }
