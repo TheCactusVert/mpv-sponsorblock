@@ -13,26 +13,23 @@ use state::{State, REPL_PROP_MUTE, REPL_PROP_TIME};
 
 use env_logger::Env;
 
+static LOG_ENV: &str = "MPV_SPONSORBLOCK_LOG";
+static LOG_ENV_STYLE: &str = "MPV_SPONSORBLOCK_LOG_STYLE";
+
 // MPV entry point
 #[no_mangle]
 extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
-    // TODO Maybe use MPV logger ?
-    let env = Env::new()
-        .filter("MPV_SPONSORBLOCK_LOG")
-        .write_style("MPV_SPONSORBLOCK_LOG_STYLE");
-    env_logger::init_from_env(env);
+    let mpv = Handle::from_ptr(handle); // Wrap handle
 
-    // Wrap handle
-    let mpv = Handle::from_ptr(handle);
+    // Init logger with custom env
+    let env = Env::new().filter(LOG_ENV).write_style(LOG_ENV_STYLE);
+    env_logger::init_from_env(env);
 
     // Show that the plugin has started
     log::debug!("Starting plugin SponsorBlock [{}]!", mpv.client_name());
 
-    // Read config
-    let config = Config::default();
-
-    // State handler of MPV
-    let mut state: Option<State> = None;
+    let config = Config::default(); // Read config
+    let mut state: Option<State> = None; // State handler of MPV
 
     loop {
         // Wait for MPV events indefinitely
@@ -53,7 +50,7 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
                     state.mute_change(mute);
                 }
             }
-            Event::EndFile if let Some(state) = state.as_mut() => {
+            Event::EndFile if let Some(mut state) = state.take() => {
                 log::trace!("Received end-file event");
                 state.end_file(&mpv);
             }
