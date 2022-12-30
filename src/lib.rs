@@ -1,5 +1,6 @@
 #![feature(drain_filter)]
 #![feature(is_some_and)]
+#![feature(if_let_guard)]
 
 mod config;
 mod sponsorblock;
@@ -22,54 +23,67 @@ static NAME_PROP_MUTE: &str = "mute";
 const REPL_PROP_TIME: u64 = 1;
 const REPL_PROP_MUTE: u64 = 2;
 
-fn skip(mpv: &Handle, working_segment: Segment) {
-    mpv.set_property(NAME_PROP_TIME, working_segment.segment[1]).unwrap();
-    log::info!("Skipped segment {}", working_segment);
-    mpv.osd_message(format!("Skipped segment {}", working_segment), Duration::from_secs(8))
-        .unwrap();
+struct State {
+    worker: Worker,
+    mute_segment: Option<Segment>,
+    mute_sponsorblock: bool,
 }
 
-fn mute(mpv: &Handle, working_segment: Segment, current_segment: &Option<Segment>, mute_sponsorblock: &mut bool) {
-    // Working only if entering a new segment
-    if current_segment
-        .as_ref()
-        .is_some_and(|ref segment| segment.uuid == working_segment.uuid)
-    {
-        return;
-    }
-
-    // If muted by the plugin do it again just for the log or if not muted do it
-    if *mute_sponsorblock || mpv.get_property::<String>(NAME_PROP_MUTE).unwrap() != "yes" {
-        mpv.set_property(NAME_PROP_MUTE, "yes".to_string()).unwrap();
-        log::info!("Mutting segment {}", working_segment);
-        mpv.osd_message(format!("Mutting segment {}", working_segment), Duration::from_secs(8))
+impl State {
+    fn skip(&self, mpv: &Handle, working_segment: Segment) {
+        mpv.set_property(NAME_PROP_TIME, working_segment.segment[1]).unwrap();
+        log::info!("Skipped segment {}", working_segment);
+        mpv.osd_message(format!("Skipped segment {}", working_segment), Duration::from_secs(8))
             .unwrap();
-        *mute_sponsorblock = true;
-    } else {
-        log::info!("Muttable segment found but mute was requested by user prior segment. Ignoring");
-    }
-}
-
-fn unmute(mpv: &Handle, current_segment: &Option<Segment>, mute_sponsorblock: &mut bool) {
-    // Working only if exiting segment
-    if current_segment.is_none() {
-        return;
     }
 
-    // If muted the by plugin then unmute
-    if *mute_sponsorblock {
-        mpv.set_property(NAME_PROP_MUTE, "no".to_string()).unwrap();
-        log::info!("Unmutting");
-        *mute_sponsorblock = false;
-    } else {
-        log::info!("Muttable segment(s) ended but mute value was modified. Ignoring");
-    }
-}
+    fn mute(&mut self, mpv: &Handle, working_segment: Segment) {
+        // Working only if entering a new segment
+        if self
+            .mute_segment
+            .as_ref()
+            .is_some_and(|ref segment| segment.uuid == working_segment.uuid)
+        {
+            return;
+        }
 
-fn user_mute(value: String, mute_sponsorblock: &mut bool) {
-    // If muted by the plugin and request unmute then plugin doesn't own mute
-    if *mute_sponsorblock && value == "no" {
-        *mute_sponsorblock = false;
+        // If muted by the plugin do it again just for the log or if not muted do it
+        if self.mute_sponsorblock || mpv.get_property::<String>(NAME_PROP_MUTE).unwrap() != "yes" {
+            mpv.set_property(NAME_PROP_MUTE, "yes".to_string()).unwrap();
+            log::info!("Mutting segment {}", working_segment);
+            mpv.osd_message(format!("Mutting segment {}", working_segment), Duration::from_secs(8))
+                .unwrap();
+            self.mute_sponsorblock = true;
+        } else {
+            log::info!("Muttable segment found but mute was requested by user prior segment. Ignoring");
+        }
+
+        self.mute_segment = Some(working_segment);
+    }
+
+    fn unmute(&mut self, mpv: &Handle) {
+        // Working only if exiting segment
+        if self.mute_segment.is_none() {
+            return;
+        }
+
+        // If muted the by plugin then unmute
+        if self.mute_sponsorblock {
+            mpv.set_property(NAME_PROP_MUTE, "no".to_string()).unwrap();
+            log::info!("Unmutting");
+            self.mute_sponsorblock = false;
+        } else {
+            log::info!("Muttable segment(s) ended but mute value was modified. Ignoring");
+        }
+
+        self.mute_segment = None
+    }
+
+    fn user_mute(&mut self, value: String) {
+        // If muted by the plugin and request unmute then plugin doesn't own mute
+        if self.mute_sponsorblock && value == "no" {
+            self.mute_sponsorblock = false;
+        }
     }
 }
 
@@ -91,12 +105,8 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
     // Read config
     let config = Config::default();
 
-    // Create SponsorBlock worker
-    let mut worker: Option<Worker> = None;
-
-    // Boolean to check if we are currently in a mutted segment
-    let mut mute_segment: Option<Segment> = None;
-    let mut mute_sponsorblock: bool = false;
+    // State handler of MPV
+    let mut state: Option<State> = None;
 
     loop {
         // Wait for MPV events indefinitely
@@ -104,43 +114,37 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
             Event::StartFile(_) => {
                 log::trace!("Received start-file event");
 
-                mute_segment = None;
-                worker = Worker::new(config.clone(), mpv.get_property::<String>(NAME_PROP_PATH).unwrap());
-                if worker.is_some() {
+                state = Worker::new(config.clone(), mpv.get_property::<String>(NAME_PROP_PATH).unwrap()).and_then(|worker| {
                     mpv.observe_property::<f64>(REPL_PROP_TIME, NAME_PROP_TIME).unwrap();
                     mpv.observe_property::<String>(REPL_PROP_MUTE, NAME_PROP_MUTE).unwrap();
-                }
+
+                    Some(State { worker, mute_segment: None, mute_sponsorblock: false })
+                });
             }
-            Event::PropertyChange(REPL_PROP_TIME, data) if worker.is_some() => {
+            Event::PropertyChange(REPL_PROP_TIME, data) if let Some(state) = state.as_mut() => {
                 log::trace!("Received {} on reply {}", data.name(), REPL_PROP_TIME);
 
-                let worker = worker.as_ref().unwrap(); // Already checked
-
                 if let Some(time_pos) = data.data::<f64>() {
-                    if let Some(s) = worker.get_skip_segment(time_pos) {
-                        skip(&mpv, s); // Skip segments are priority
-                    } else if let Some(s) = worker.get_mute_segment(time_pos) {
-                        mute(&mpv, s.clone(), &mute_segment, &mut mute_sponsorblock);
-                        mute_segment = Some(s);
+                    if let Some(s) = state.worker.get_skip_segment(time_pos) {
+                        state.skip(&mpv, s); // Skip segments are priority
+                    } else if let Some(s) = state.worker.get_mute_segment(time_pos) {
+                        state.mute(&mpv, s);
                     } else {
-                        unmute(&mpv, &mute_segment, &mut mute_sponsorblock);
-                        mute_segment = None;
+                        state.unmute(&mpv);
                     }
                 }
             }
-            Event::PropertyChange(REPL_PROP_MUTE, data) if worker.is_some() => {
+            Event::PropertyChange(REPL_PROP_MUTE, data) if let Some(state) = state.as_mut() => {
                 log::trace!("Received {} on reply {}", data.name(), REPL_PROP_MUTE);
 
                 if let Some(mute) = data.data::<String>() {
-                    user_mute(mute, &mut mute_sponsorblock);
+                    state.user_mute(mute);
                 }
             }
-            Event::EndFile if worker.is_some() => {
+            Event::EndFile if let Some(state) = state.as_mut() => {
                 log::trace!("Received end-file event");
 
-                unmute(&mpv, &mute_segment, &mut mute_sponsorblock);
-                mute_segment = None;
-                worker = None;
+                state.unmute(&mpv);
                 mpv.unobserve_property(REPL_PROP_TIME).unwrap();
                 mpv.unobserve_property(REPL_PROP_MUTE).unwrap();
             }

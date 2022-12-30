@@ -14,8 +14,8 @@ pub struct Segment {
     #[serde(rename = "actionType")]
     pub action: Action,
     pub segment: [f64; 2],
-    #[serde(rename = "UUID", with = "hex")]
-    pub uuid: [u8; 32],
+    #[serde(rename = "UUID")]
+    pub uuid: String,
     //pub locked: i64,
     //pub votes: i64,
     //pub video_duration: f64,
@@ -50,6 +50,8 @@ impl Segment {
             .append_pair("videoID", &id)
             .extend_pairs(categories.into_iter().map(|v| ("category", v.to_string())))
             .extend_pairs(action_types.into_iter().map(|v| ("actionType", v.to_string())));
+
+        println!("URL: {}", url);
 
         let req = Client::builder()
             .user_agent(USER_AGENT)
