@@ -11,7 +11,6 @@ use tokio::select;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
-#[derive(Default)]
 struct SortedSegments {
     skippable: Segments,
     mutable: Segments,
@@ -19,8 +18,24 @@ struct SortedSegments {
     full: Option<Segment>,
 }
 
+impl SortedSegments {
+    fn new(mut segments: Segments) -> Self {
+        let skippable: Segments = segments.drain_filter(|s| s.action == Action::Skip).collect();
+        let mutable: Segments = segments.drain_filter(|s| s.action == Action::Mute).collect();
+        let poi: Option<Segment> = segments.drain_filter(|s| s.action == Action::Poi).next();
+        let full: Option<Segment> = segments.drain_filter(|s| s.action == Action::Full).next();
+
+        Self {
+            skippable,
+            mutable,
+            poi,
+            full,
+        }
+    }
+}
+
 pub struct Worker {
-    sorted_segments: Arc<Mutex<SortedSegments>>,
+    sorted_segments: Arc<Mutex<Option<SortedSegments>>>,
     rt: Runtime,
     token: CancellationToken,
     join: JoinHandle<()>,
@@ -30,7 +45,7 @@ impl Worker {
     pub fn new(config: Config, path: String) -> Option<Self> {
         let id = get_youtube_id(path)?; // If not a YT video then do nothing
 
-        let sorted_segments = Arc::new(Mutex::new(SortedSegments::default()));
+        let sorted_segments = Arc::new(Mutex::new(None));
         let rt = Runtime::new().unwrap();
         let token = CancellationToken::new();
         let join = rt.spawn(Self::run(config, id, sorted_segments.clone(), token.clone()));
@@ -58,61 +73,62 @@ impl Worker {
         }
     }
 
-    async fn run(config: Config, id: String, sorted_segments: Arc<Mutex<SortedSegments>>, token: CancellationToken) {
+    async fn run(
+        config: Config,
+        id: String,
+        sorted_segments: Arc<Mutex<Option<SortedSegments>>>,
+        token: CancellationToken,
+    ) {
         select! {
             _ = token.cancelled() => {
                 log::debug!("Thread cancelled. Segments couldn't be retrieved in time");
             },
             segments = Self::fetch(config, id) => {
-                let mut segments = segments.unwrap_or_default();
-
-                // Lock only when segments are found
                 let mut sorted_segments = sorted_segments.lock().unwrap();
-
-                // The sgments will be searched multiple times by seconds.
-                // It's more efficient to split them before.
-
-                (*sorted_segments).skippable = segments.drain_filter(|s| s.action == Action::Skip).collect();
-                log::info!("Found {} skippable segment(s)", (*sorted_segments).skippable.len());
-
-                (*sorted_segments).mutable = segments.drain_filter(|s| s.action == Action::Mute).collect();
-                log::info!("Found {} muttable segment(s)", (*sorted_segments).mutable.len());
-
-                (*sorted_segments).poi = segments.drain_filter(|s| s.action == Action::Poi).next();
-                log::info!("Highlight {}", if (*sorted_segments).poi.is_some() { "found" } else { "not found" });
-
-                (*sorted_segments).full = segments.drain_filter(|s| s.action == Action::Full).next();
-                log::info!("Category {}", if (*sorted_segments).full.is_some() { "found" } else { "not found" });
+                (*sorted_segments) = Some({
+                    let sorted_segments = SortedSegments::new(segments.unwrap_or_default());
+                    log::info!("Found {} skippable segment(s)", sorted_segments.skippable.len());
+                    log::info!("Found {} muttable segment(s)", sorted_segments.mutable.len());
+                    log::info!("Highlight {}", if sorted_segments.poi.is_some() { "found" } else { "not found" });
+                    log::info!("Category {}", if sorted_segments.full.is_some() { "found" } else { "not found" });
+                    sorted_segments
+                });
             }
         };
     }
 
     pub fn get_skip_segment(&self, time_pos: f64) -> Option<Segment> {
-        self.sorted_segments
-            .lock()
-            .unwrap()
-            .skippable
-            .iter()
-            .find(|s| time_pos >= s.segment[0] && time_pos < (s.segment[1] - 0.1_f64))
-            .cloned()
+        self.sorted_segments.lock().unwrap().as_ref().and_then(|s| {
+            s.skippable
+                .iter()
+                .find(|s| time_pos >= s.segment[0] && time_pos < (s.segment[1] - 0.1_f64))
+                .cloned()
+        })
     }
 
     pub fn get_mute_segment(&self, time_pos: f64) -> Option<Segment> {
-        self.sorted_segments
-            .lock()
-            .unwrap()
-            .mutable
-            .iter()
-            .find(|s| time_pos >= s.segment[0] && time_pos < (s.segment[1] - 0.1_f64))
-            .cloned()
+        self.sorted_segments.lock().unwrap().as_ref().and_then(|s| {
+            s.mutable
+                .iter()
+                .find(|s| time_pos >= s.segment[0] && time_pos < (s.segment[1] - 0.1_f64))
+                .cloned()
+        })
     }
 
     pub fn get_video_poi(&self) -> Option<f64> {
-        self.sorted_segments.lock().unwrap().poi.as_ref().map(|s| s.segment[0])
+        self.sorted_segments
+            .lock()
+            .unwrap()
+            .as_ref()
+            .and_then(|s| s.poi.as_ref().map(|s| s.segment[0]))
     }
 
     pub fn get_video_category(&self) -> Option<Category> {
-        self.sorted_segments.lock().unwrap().full.as_ref().map(|s| s.category)
+        self.sorted_segments
+            .lock()
+            .unwrap()
+            .as_ref()
+            .and_then(|s| s.full.as_ref().map(|s| s.category))
     }
 }
 
