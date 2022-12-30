@@ -98,10 +98,8 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
     let mut mute_segment: Option<Segment> = None;
     let mut mute_sponsorblock: bool = false;
 
-    // Subscribe to property time-pos
+    // Subscribe to property time-pos and mute
     mpv.observe_property::<f64>(REPL_PROP_TIME, NAME_PROP_TIME).unwrap();
-
-    // Subscribe to property mute
     mpv.observe_property::<String>(REPL_PROP_MUTE, NAME_PROP_MUTE).unwrap();
 
     loop {
