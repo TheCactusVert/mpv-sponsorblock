@@ -98,24 +98,28 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
     let mut mute_segment: Option<Segment> = None;
     let mut mute_sponsorblock: bool = false;
 
-    // Subscribe to property time-pos and mute
-    mpv.observe_property::<f64>(REPL_PROP_TIME, NAME_PROP_TIME).unwrap();
-    mpv.observe_property::<String>(REPL_PROP_MUTE, NAME_PROP_MUTE).unwrap();
-
     loop {
         // Wait for MPV events indefinitely
         match mpv.wait_event(-1.) {
             Event::StartFile(_) => {
                 log::trace!("Received start-file event");
+
                 mute_segment = None;
                 worker = Worker::new(config.clone(), mpv.get_property::<String>(NAME_PROP_PATH).unwrap());
+                if worker.is_some() {
+                    mpv.observe_property::<f64>(REPL_PROP_TIME, NAME_PROP_TIME).unwrap();
+                    mpv.observe_property::<String>(REPL_PROP_MUTE, NAME_PROP_MUTE).unwrap();
+                }
             }
             Event::PropertyChange(REPL_PROP_TIME, data) if worker.is_some() => {
                 log::trace!("Received {} on reply {}", data.name(), REPL_PROP_TIME);
+
+                let worker = worker.as_ref().unwrap(); // Already checked
+
                 if let Some(time_pos) = data.data::<f64>() {
-                    if let Some(s) = worker.as_ref().and_then(|w| w.get_skip_segment(time_pos)) {
+                    if let Some(s) = worker.get_skip_segment(time_pos) {
                         skip(&mpv, s); // Skip segments are priority
-                    } else if let Some(s) = worker.as_ref().and_then(|w| w.get_mute_segment(time_pos)) {
+                    } else if let Some(s) = worker.get_mute_segment(time_pos) {
                         mute(&mpv, s.clone(), &mute_segment, &mut mute_sponsorblock);
                         mute_segment = Some(s);
                     } else {
@@ -126,17 +130,23 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
             }
             Event::PropertyChange(REPL_PROP_MUTE, data) if worker.is_some() => {
                 log::trace!("Received {} on reply {}", data.name(), REPL_PROP_MUTE);
+
                 if let Some(mute) = data.data::<String>() {
                     user_mute(mute, &mut mute_sponsorblock);
                 }
             }
             Event::EndFile if worker.is_some() => {
                 log::trace!("Received end-file event");
+
                 unmute(&mpv, &mute_segment, &mut mute_sponsorblock);
+                mute_segment = None;
                 worker = None;
+                mpv.unobserve_property(REPL_PROP_TIME).unwrap();
+                mpv.unobserve_property(REPL_PROP_MUTE).unwrap();
             }
             Event::Shutdown => {
                 log::trace!("Received shutdown event");
+
                 return 0;
             }
             event => {
