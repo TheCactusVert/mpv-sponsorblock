@@ -527,6 +527,7 @@ dependencies = [
  "log",
  "mpv-client",
  "regex",
+ "reqwest",
  "serde",
  "serde_derive",
  "sponsorblock-client",
@@ -869,10 +870,8 @@ dependencies = [
 [[package]]
 name = "sponsorblock-client"
 version = "0.1.0"
-source = "git+https://github.com/TheCactusVert/sponsorblock-client.git#e094558573db23d3be7323a255f53ddc986eb57c"
 dependencies = [
  "hex",
- "log",
  "reqwest",
  "serde",
  "serde_derive",

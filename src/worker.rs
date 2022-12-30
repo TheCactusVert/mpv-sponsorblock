@@ -3,7 +3,9 @@ use crate::utils::get_youtube_id;
 
 use std::sync::{Arc, Mutex};
 
-use sponsorblock_client::{self, *};
+use reqwest::StatusCode;
+use sponsorblock::*;
+use sponsorblock_client as sponsorblock;
 use tokio::runtime::Runtime;
 use tokio::select;
 use tokio::task::JoinHandle;
@@ -41,12 +43,27 @@ impl Worker {
         })
     }
 
+    async fn fetch(config: Config, id: String) -> Option<Segments> {
+        match if config.privacy_api {
+            sponsorblock::fetch_with_privacy(config.server_address, id, config.categories, config.action_types).await
+        } else {
+            sponsorblock::fetch(config.server_address, id, config.categories, config.action_types).await
+        } {
+            Ok(v) => Some(v),
+            Err(e) if e.status() == Some(StatusCode::NOT_FOUND) => None,
+            Err(e) => {
+                log::error!("Failed to get segments: {}", e);
+                None
+            }
+        }
+    }
+
     async fn run(config: Config, id: String, sorted_segments: Arc<Mutex<SortedSegments>>, token: CancellationToken) {
         select! {
             _ = token.cancelled() => {
                 log::debug!("Thread cancelled. Segments couldn't be retrieved in time");
             },
-            segments = sponsorblock_client::fetch(config.server_address, config.privacy_api, id, config.categories, config.action_types) => {
+            segments = Self::fetch(config, id) => {
                 let mut segments = segments.unwrap_or_default();
 
                 // Lock only when segments are found
@@ -76,7 +93,7 @@ impl Worker {
             .unwrap()
             .skippable
             .iter()
-            .find(|s| s.is_in_segment(time_pos))
+            .find(|s| time_pos >= s.segment[0] && time_pos < (s.segment[1] - 0.1_f64))
             .cloned()
     }
 
@@ -86,7 +103,7 @@ impl Worker {
             .unwrap()
             .mutable
             .iter()
-            .find(|s| s.is_in_segment(time_pos))
+            .find(|s| time_pos >= s.segment[0] && time_pos < (s.segment[1] - 0.1_f64))
             .cloned()
     }
 
