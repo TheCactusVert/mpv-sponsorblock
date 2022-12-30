@@ -1,5 +1,4 @@
 #![feature(drain_filter)]
-#![feature(is_some_and)]
 #![feature(if_let_guard)]
 
 mod config;
@@ -39,11 +38,7 @@ impl State {
 
     fn mute(&mut self, mpv: &Handle, working_segment: Segment) {
         // Working only if entering a new segment
-        if self
-            .mute_segment
-            .as_ref()
-            .is_some_and(|ref segment| segment.uuid == working_segment.uuid)
-        {
+        if self.mute_segment == Some(working_segment.clone()) {
             return;
         }
 

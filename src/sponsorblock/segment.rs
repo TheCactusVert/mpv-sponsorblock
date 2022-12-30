@@ -1,6 +1,8 @@
 use super::Action;
 use super::Category;
 
+use std::{cmp, fmt};
+
 use reqwest::{Client, Result, Url};
 use serde_derive::Deserialize;
 use sha2::{Digest, Sha256};
@@ -109,8 +111,20 @@ impl Segment {
     }
 }
 
-impl std::fmt::Display for Segment {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl PartialEq for Segment {
+    fn eq(&self, other: &Self) -> bool {
+        self.uuid == other.uuid
+    }
+}
+
+impl PartialOrd for Segment {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        self.segment[0].partial_cmp(&other.segment[0])
+    }
+}
+
+impl fmt::Display for Segment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "[{}] {} - {}", self.category, self.segment[0], self.segment[1])
     }
 }
