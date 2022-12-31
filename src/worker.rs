@@ -73,8 +73,14 @@ impl Worker {
         } else {
             sponsorblock::fetch(config.server_address, id, config.categories, config.action_types).await
         } {
-            Ok(v) => Some(v),
-            Err(e) if e.status() == Some(StatusCode::NOT_FOUND) => None,
+            Ok(v) => {
+                log::trace!("Segments found");
+                Some(v)
+            }
+            Err(e) if e.status() == Some(StatusCode::NOT_FOUND) => {
+                log::info!("No segments found");
+                None
+            }
             Err(e) => {
                 log::error!("Failed to get segments: {}", e);
                 None
@@ -84,12 +90,13 @@ impl Worker {
 
     async fn run(config: Config, id: String, sorted_segments: SharedSortedSegments, token: CancellationToken) {
         let segments = select! {
-            segments = Self::fetch(config, id) => segments.unwrap_or_default(),
+            s = Self::fetch(config, id) => s,
             _ = token.cancelled() => return,
         };
 
+        // Lock only when data is received
         let mut sorted_segments = sorted_segments.lock().unwrap();
-        (*sorted_segments) = Some(SortedSegments::from(segments));
+        (*sorted_segments) = segments.and_then(|s| Some(SortedSegments::from(s)));
     }
 
     pub fn get_skip_segment(&self, time_pos: f64) -> Option<Segment> {
