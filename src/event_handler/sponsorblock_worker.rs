@@ -25,11 +25,6 @@ impl SortedSegments {
         let poi: Option<Segment> = segments.drain_filter(|s| s.action == Action::Poi).next();
         let full: Option<Segment> = segments.drain_filter(|s| s.action == Action::Full).next();
 
-        log::info!("Found {} skippable segment(s)", skippable.len());
-        log::info!("Found {} muttable segment(s)", mutable.len());
-        log::info!("Highlight {}", if poi.is_some() { "found" } else { "not found" });
-        log::info!("Category {}", if full.is_some() { "found" } else { "not found" });
-
         Self {
             skippable,
             mutable,
@@ -68,17 +63,17 @@ impl SponsorBlockWorker {
     }
 
     async fn run(config: Config, id: String, sorted_segments: SharedSortedSegments, token: CancellationToken) {
-        let segments = select! {
+        let sorted = select! {
             s = Self::fetch(config, id) => s,
             _ = token.cancelled() => return,
         };
 
         // Lock only when data is received
         let mut sorted_segments = sorted_segments.lock().unwrap();
-        (*sorted_segments) = segments.and_then(|s| Some(SortedSegments::from(s)));
+        (*sorted_segments) = sorted;
     }
 
-    async fn fetch(config: Config, id: String) -> Option<Segments> {
+    async fn fetch(config: Config, id: String) -> Option<SortedSegments> {
         let segments = if config.privacy_api {
             sponsorblock::fetch_with_privacy(config.server_address, id, config.categories, config.action_types).await
         } else {
@@ -87,8 +82,12 @@ impl SponsorBlockWorker {
 
         match segments {
             Ok(v) => {
-                log::trace!("Segments found");
-                Some(v)
+                let sorted = SortedSegments::from(v);
+                log::info!("Found {} skippable segment(s)", sorted.skippable.len());
+                log::info!("Found {} muttable segment(s)", sorted.mutable.len());
+                log::info!("Highlight {}", if sorted.poi.is_some() { "found" } else { "not found" });
+                log::info!("Category {}", if sorted.full.is_some() { "found" } else { "not found" });
+                Some(sorted)
             }
             Err(e) if e.status() == Some(StatusCode::NOT_FOUND) => {
                 log::info!("No segments found");
