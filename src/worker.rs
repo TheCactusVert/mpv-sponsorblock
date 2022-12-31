@@ -105,7 +105,7 @@ impl Worker {
         self.sorted_segments.lock().unwrap().as_ref().and_then(|s| {
             s.skippable
                 .iter()
-                .find(|s| time_pos >= s.segment[0] && time_pos < (s.segment[1] - 0.1_f64))
+                .find(|s| time_pos >= s.segment[0] && time_pos < (s.segment[1] - 0.1_f64)) // Fix for a stupid bug when times are too precise
                 .cloned()
         })
     }
@@ -114,7 +114,7 @@ impl Worker {
         self.sorted_segments.lock().unwrap().as_ref().and_then(|s| {
             s.mutable
                 .iter()
-                .find(|s| time_pos >= s.segment[0] && time_pos < (s.segment[1] - 0.1_f64))
+                .find(|s| time_pos >= s.segment[0] && time_pos < s.segment[1])
                 .cloned()
         })
     }
