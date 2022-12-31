@@ -67,6 +67,17 @@ impl Worker {
         })
     }
 
+    async fn run(config: Config, id: String, sorted_segments: SharedSortedSegments, token: CancellationToken) {
+        let segments = select! {
+            s = Self::fetch(config, id) => s,
+            _ = token.cancelled() => return,
+        };
+
+        // Lock only when data is received
+        let mut sorted_segments = sorted_segments.lock().unwrap();
+        (*sorted_segments) = segments.and_then(|s| Some(SortedSegments::from(s)));
+    }
+
     async fn fetch(config: Config, id: String) -> Option<Segments> {
         let segments = if config.privacy_api {
             sponsorblock::fetch_with_privacy(config.server_address, id, config.categories, config.action_types).await
@@ -88,17 +99,6 @@ impl Worker {
                 None
             }
         }
-    }
-
-    async fn run(config: Config, id: String, sorted_segments: SharedSortedSegments, token: CancellationToken) {
-        let segments = select! {
-            s = Self::fetch(config, id) => s,
-            _ = token.cancelled() => return,
-        };
-
-        // Lock only when data is received
-        let mut sorted_segments = sorted_segments.lock().unwrap();
-        (*sorted_segments) = segments.and_then(|s| Some(SortedSegments::from(s)));
     }
 
     pub fn get_skip_segment(&self, time_pos: f64) -> Option<Segment> {

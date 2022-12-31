@@ -33,6 +33,29 @@ impl State {
         })
     }
 
+    pub fn time_change(&mut self, mpv: &Handle, time_pos: f64) {
+        if let Some(s) = self.worker.get_skip_segment(time_pos) {
+            self.skip(&mpv, s); // Skip segments are priority
+        } else if let Some(s) = self.worker.get_mute_segment(time_pos) {
+            self.mute(&mpv, s);
+        } else {
+            self.reset(&mpv);
+        }
+    }
+
+    pub fn mute_change(&mut self, mute: String) {
+        // If muted by the plugin and request unmute then plugin doesn't own mute
+        if self.mute_sponsorblock && mute == "no" {
+            self.mute_sponsorblock = false;
+        }
+    }
+
+    pub fn end_file(&mut self, mpv: &Handle) {
+        self.reset(&mpv);
+        mpv.unobserve_property(REPL_PROP_TIME).unwrap();
+        mpv.unobserve_property(REPL_PROP_MUTE).unwrap();
+    }
+
     fn skip(&self, mpv: &Handle, working_segment: Segment) {
         mpv.set_property(NAME_PROP_TIME, working_segment.segment[1]).unwrap();
         log::info!("Skipped segment {}", working_segment);
@@ -76,28 +99,5 @@ impl State {
         }
 
         self.mute_segment = None
-    }
-
-    pub fn time_change(&mut self, mpv: &Handle, time_pos: f64) {
-        if let Some(s) = self.worker.get_skip_segment(time_pos) {
-            self.skip(&mpv, s); // Skip segments are priority
-        } else if let Some(s) = self.worker.get_mute_segment(time_pos) {
-            self.mute(&mpv, s);
-        } else {
-            self.reset(&mpv);
-        }
-    }
-
-    pub fn mute_change(&mut self, mute: String) {
-        // If muted by the plugin and request unmute then plugin doesn't own mute
-        if self.mute_sponsorblock && mute == "no" {
-            self.mute_sponsorblock = false;
-        }
-    }
-
-    pub fn end_file(&mut self, mpv: &Handle) {
-        self.reset(&mpv);
-        mpv.unobserve_property(REPL_PROP_TIME).unwrap();
-        mpv.unobserve_property(REPL_PROP_MUTE).unwrap();
     }
 }
