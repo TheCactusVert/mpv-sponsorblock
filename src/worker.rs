@@ -19,11 +19,16 @@ struct SortedSegments {
 }
 
 impl SortedSegments {
-    fn new(mut segments: Segments) -> Self {
+    fn from(mut segments: Segments) -> Self {
         let skippable: Segments = segments.drain_filter(|s| s.action == Action::Skip).collect();
         let mutable: Segments = segments.drain_filter(|s| s.action == Action::Mute).collect();
         let poi: Option<Segment> = segments.drain_filter(|s| s.action == Action::Poi).next();
         let full: Option<Segment> = segments.drain_filter(|s| s.action == Action::Full).next();
+
+        log::info!("Found {} skippable segment(s)", skippable.len());
+        log::info!("Found {} muttable segment(s)", mutable.len());
+        log::info!("Highlight {}", if poi.is_some() { "found" } else { "not found" });
+        log::info!("Category {}", if full.is_some() { "found" } else { "not found" });
 
         Self {
             skippable,
@@ -44,6 +49,8 @@ pub struct Worker {
 impl Worker {
     pub fn new(config: Config, path: String) -> Option<Self> {
         let id = get_youtube_id(path)?; // If not a YT video then do nothing
+
+        log::trace!("Starting worker");
 
         let sorted_segments = Arc::new(Mutex::new(None));
         let rt = Runtime::new().unwrap();
@@ -79,22 +86,13 @@ impl Worker {
         sorted_segments: Arc<Mutex<Option<SortedSegments>>>,
         token: CancellationToken,
     ) {
-        select! {
-            _ = token.cancelled() => {
-                log::debug!("Thread cancelled. Segments couldn't be retrieved in time");
-            },
-            segments = Self::fetch(config, id) => {
-                let mut sorted_segments = sorted_segments.lock().unwrap();
-                (*sorted_segments) = Some({
-                    let sorted_segments = SortedSegments::new(segments.unwrap_or_default());
-                    log::info!("Found {} skippable segment(s)", sorted_segments.skippable.len());
-                    log::info!("Found {} muttable segment(s)", sorted_segments.mutable.len());
-                    log::info!("Highlight {}", if sorted_segments.poi.is_some() { "found" } else { "not found" });
-                    log::info!("Category {}", if sorted_segments.full.is_some() { "found" } else { "not found" });
-                    sorted_segments
-                });
-            }
+        let segments = select! {
+            segments = Self::fetch(config, id) => segments.unwrap_or_default(),
+            _ = token.cancelled() => return,
         };
+
+        let mut sorted_segments = sorted_segments.lock().unwrap();
+        (*sorted_segments) = Some(SortedSegments::from(segments));
     }
 
     pub fn get_skip_segment(&self, time_pos: f64) -> Option<Segment> {
@@ -134,8 +132,8 @@ impl Worker {
 
 impl Drop for Worker {
     fn drop(&mut self) {
-        log::debug!("Stopping worker");
         self.token.cancel();
+        log::trace!("Stopping worker");
         self.rt.block_on(&mut self.join).unwrap();
     }
 }
