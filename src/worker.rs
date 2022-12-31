@@ -68,11 +68,13 @@ impl Worker {
     }
 
     async fn fetch(config: Config, id: String) -> Option<Segments> {
-        match if config.privacy_api {
+        let segments = if config.privacy_api {
             sponsorblock::fetch_with_privacy(config.server_address, id, config.categories, config.action_types).await
         } else {
             sponsorblock::fetch(config.server_address, id, config.categories, config.action_types).await
-        } {
+        };
+
+        match segments {
             Ok(v) => {
                 log::trace!("Segments found");
                 Some(v)
