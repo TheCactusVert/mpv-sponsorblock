@@ -41,14 +41,14 @@ impl SortedSegments {
 
 type SharedSortedSegments = Arc<Mutex<Option<SortedSegments>>>;
 
-pub struct Worker {
+pub struct SponsorBlockWorker {
     sorted_segments: SharedSortedSegments,
     rt: Runtime,
     token: CancellationToken,
     join: JoinHandle<()>,
 }
 
-impl Worker {
+impl SponsorBlockWorker {
     pub fn new(config: Config, path: String) -> Option<Self> {
         let id = get_youtube_id(path)?; // If not a YT video then do nothing
 
@@ -59,7 +59,7 @@ impl Worker {
         let token = CancellationToken::new();
         let join = rt.spawn(Self::run(config, id, sorted_segments.clone(), token.clone()));
 
-        Some(Worker {
+        Some(SponsorBlockWorker {
             sorted_segments,
             rt,
             token,
@@ -136,7 +136,7 @@ impl Worker {
     }
 }
 
-impl Drop for Worker {
+impl Drop for SponsorBlockWorker {
     fn drop(&mut self) {
         self.token.cancel();
         log::trace!("Stopping worker");

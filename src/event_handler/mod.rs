@@ -1,5 +1,7 @@
+mod sponsorblock_worker;
+
 use crate::config::Config;
-use crate::worker::Worker;
+use sponsorblock_worker::SponsorBlockWorker;
 
 use std::time::Duration;
 
@@ -14,14 +16,14 @@ pub const REPL_PROP_TIME: u64 = 1;
 pub const REPL_PROP_MUTE: u64 = 2;
 
 pub struct EventHandler {
-    worker: Worker,
+    worker: SponsorBlockWorker,
     mute_segment: Option<Segment>,
     mute_sponsorblock: bool,
 }
 
 impl EventHandler {
     pub fn new(mpv: &Handle, config: Config) -> Option<Self> {
-        Worker::new(config, mpv.get_property::<String>(NAME_PROP_PATH).unwrap()).and_then(|worker| {
+        SponsorBlockWorker::new(config, mpv.get_property::<String>(NAME_PROP_PATH).unwrap()).and_then(|worker| {
             mpv.observe_property::<f64>(REPL_PROP_TIME, NAME_PROP_TIME).unwrap();
             mpv.observe_property::<String>(REPL_PROP_MUTE, NAME_PROP_MUTE).unwrap();
 
