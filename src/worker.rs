@@ -39,8 +39,10 @@ impl SortedSegments {
     }
 }
 
+type SharedSortedSegments = Arc<Mutex<Option<SortedSegments>>>;
+
 pub struct Worker {
-    sorted_segments: Arc<Mutex<Option<SortedSegments>>>,
+    sorted_segments: SharedSortedSegments,
     rt: Runtime,
     token: CancellationToken,
     join: JoinHandle<()>,
@@ -52,7 +54,7 @@ impl Worker {
 
         log::trace!("Starting worker");
 
-        let sorted_segments = Arc::new(Mutex::new(None));
+        let sorted_segments = SharedSortedSegments::default();
         let rt = Runtime::new().unwrap();
         let token = CancellationToken::new();
         let join = rt.spawn(Self::run(config, id, sorted_segments.clone(), token.clone()));
@@ -80,12 +82,7 @@ impl Worker {
         }
     }
 
-    async fn run(
-        config: Config,
-        id: String,
-        sorted_segments: Arc<Mutex<Option<SortedSegments>>>,
-        token: CancellationToken,
-    ) {
+    async fn run(config: Config, id: String, sorted_segments: SharedSortedSegments, token: CancellationToken) {
         let segments = select! {
             segments = Self::fetch(config, id) => segments.unwrap_or_default(),
             _ = token.cancelled() => return,
