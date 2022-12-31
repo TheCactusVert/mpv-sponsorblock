@@ -2,13 +2,13 @@
 #![feature(if_let_guard)]
 
 mod config;
-mod state;
+mod event_handler;
 mod utils;
 mod worker;
 
 use config::Config;
+use event_handler::{EventHandler, REPL_PROP_MUTE, REPL_PROP_TIME};
 use mpv_client::{mpv_handle, Event, Handle};
-use state::{State, REPL_PROP_MUTE, REPL_PROP_TIME};
 
 use env_logger::Env;
 
@@ -28,30 +28,30 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
     log::debug!("Starting plugin SponsorBlock [{}]!", mpv.client_name());
 
     let config = Config::default(); // Read config
-    let mut state: Option<State> = None; // State handler of MPV
+    let mut event_handler: Option<EventHandler> = None; // Event handler of MPV
 
     loop {
         // Wait for MPV events indefinitely
         match mpv.wait_event(-1.) {
             Event::StartFile(_data) => {
                 log::trace!("Received start-file event");
-                state = State::new(&mpv, config.clone());
+                event_handler = EventHandler::new(&mpv, config.clone());
             }
-            Event::PropertyChange(REPL_PROP_TIME, data) if let Some(state) = state.as_mut() => {
+            Event::PropertyChange(REPL_PROP_TIME, data) if let Some(event_handler) = event_handler.as_mut() => {
                 log::trace!("Received {} on reply {}", data.name(), REPL_PROP_TIME);
                 if let Some(time_pos) = data.data() {
-                    state.time_change(&mpv, time_pos);
+                    event_handler.time_change(&mpv, time_pos);
                 }
             }
-            Event::PropertyChange(REPL_PROP_MUTE, data) if let Some(state) = state.as_mut() => {
+            Event::PropertyChange(REPL_PROP_MUTE, data) if let Some(event_handler) = event_handler.as_mut() => {
                 log::trace!("Received {} on reply {}", data.name(), REPL_PROP_MUTE);
                 if let Some(mute) = data.data() {
-                    state.mute_change(mute);
+                    event_handler.mute_change(mute);
                 }
             }
-            Event::EndFile if let Some(mut state) = state.take() => {
+            Event::EndFile if let Some(mut event_handler) = event_handler.take() => {
                 log::trace!("Received end-file event");
-                state.end_file(&mpv);
+                event_handler.end_file(&mpv);
             }
             Event::Shutdown => {
                 log::trace!("Received shutdown event");

@@ -13,19 +13,19 @@ static NAME_PROP_MUTE: &str = "mute";
 pub const REPL_PROP_TIME: u64 = 1;
 pub const REPL_PROP_MUTE: u64 = 2;
 
-pub struct State {
+pub struct EventHandler {
     worker: Worker,
     mute_segment: Option<Segment>,
     mute_sponsorblock: bool,
 }
 
-impl State {
+impl EventHandler {
     pub fn new(mpv: &Handle, config: Config) -> Option<Self> {
         Worker::new(config, mpv.get_property::<String>(NAME_PROP_PATH).unwrap()).and_then(|worker| {
             mpv.observe_property::<f64>(REPL_PROP_TIME, NAME_PROP_TIME).unwrap();
             mpv.observe_property::<String>(REPL_PROP_MUTE, NAME_PROP_MUTE).unwrap();
 
-            Some(State {
+            Some(Self {
                 worker,
                 mute_segment: None,
                 mute_sponsorblock: false,
