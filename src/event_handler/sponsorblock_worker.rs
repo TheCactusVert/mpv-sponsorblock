@@ -81,8 +81,8 @@ impl SponsorBlockWorker {
         };
 
         match segments {
-            Ok(v) => {
-                let sorted = SortedSegments::from(v);
+            Ok(s) => {
+                let sorted = SortedSegments::from(s);
                 log::info!("Found {} skippable segment(s)", sorted.skippable.len());
                 log::info!("Found {} muttable segment(s)", sorted.mutable.len());
                 log::info!("Highlight {}", if sorted.poi.is_some() { "found" } else { "not found" });
