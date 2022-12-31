@@ -23,15 +23,15 @@ pub struct EventHandler {
 
 impl EventHandler {
     pub fn new(mpv: &Handle, config: Config) -> Option<Self> {
-        SponsorBlockWorker::new(config, mpv.get_property::<String>(NAME_PROP_PATH).unwrap()).and_then(|worker| {
-            mpv.observe_property::<f64>(REPL_PROP_TIME, NAME_PROP_TIME).unwrap();
-            mpv.observe_property::<String>(REPL_PROP_MUTE, NAME_PROP_MUTE).unwrap();
+        let worker = SponsorBlockWorker::new(config, mpv.get_property::<String>(NAME_PROP_PATH).unwrap())?;
 
-            Some(Self {
-                worker,
-                mute_segment: None,
-                mute_sponsorblock: false,
-            })
+        mpv.observe_property::<f64>(REPL_PROP_TIME, NAME_PROP_TIME).unwrap();
+        mpv.observe_property::<String>(REPL_PROP_MUTE, NAME_PROP_MUTE).unwrap();
+
+        Some(Self {
+            worker,
+            mute_segment: None,
+            mute_sponsorblock: false,
         })
     }
 
