@@ -4,11 +4,11 @@ use crate::utils::get_youtube_id;
 use std::sync::{Arc, Mutex};
 
 use reqwest::StatusCode;
-use sponsorblock::*;
-use sponsorblock_client as sponsorblock;
+use sponsorblock_client::*;
 use tokio::runtime::Runtime;
 use tokio::select;
 use tokio::task::JoinHandle;
+use tokio_util::either::Either;
 use tokio_util::sync::CancellationToken;
 
 struct SortedSegments {
@@ -63,24 +63,25 @@ impl SponsorBlockWorker {
     }
 
     async fn run(config: Config, id: String, sorted_segments: SharedSortedSegments, token: CancellationToken) {
-        let sorted = select! {
-            s = Self::fetch(config, id) => s,
+        let fetch = if config.privacy_api {
+            Either::Left(fetch_with_privacy(
+                config.server_address,
+                id,
+                config.categories,
+                config.action_types,
+            ))
+        } else {
+            Either::Right(fetch(config.server_address, id, config.categories, config.action_types))
+        };
+
+        let segments = select! {
+            s = fetch => s,
             _ = token.cancelled() => return,
         };
 
         // Lock only when data is received
         let mut sorted_segments = sorted_segments.lock().unwrap();
-        (*sorted_segments) = sorted;
-    }
-
-    async fn fetch(config: Config, id: String) -> Option<SortedSegments> {
-        let segments = if config.privacy_api {
-            sponsorblock::fetch_with_privacy(config.server_address, id, config.categories, config.action_types).await
-        } else {
-            sponsorblock::fetch(config.server_address, id, config.categories, config.action_types).await
-        };
-
-        match segments {
+        (*sorted_segments) = match segments {
             Ok(s) => {
                 let sorted = SortedSegments::from(s);
                 log::info!("Found {} skippable segment(s)", sorted.skippable.len());
@@ -137,8 +138,8 @@ impl SponsorBlockWorker {
 
 impl Drop for SponsorBlockWorker {
     fn drop(&mut self) {
-        self.token.cancel();
         log::trace!("Stopping worker");
+        self.token.cancel();
         self.rt.block_on(&mut self.join).unwrap();
     }
 }

@@ -870,6 +870,7 @@ dependencies = [
 [[package]]
 name = "sponsorblock-client"
 version = "0.1.0"
+source = "git+https://github.com/TheCactusVert/sponsorblock-client.git#2091be7374a82c919eeeddef9d0095ae0b68785f"
 dependencies = [
  "hex",
  "reqwest",
