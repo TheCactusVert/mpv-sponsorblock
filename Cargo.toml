@@ -1,6 +1,6 @@
 [package]
 name = "mpv-sponsorblock"
-version = "2.0.0-alpha.1"
+version = "2.0.0-alpha.2"
 edition = "2021"
 authors = ["Kevin Gavrois <kevin@gavrois.fr>"]
 description = "MPV plugin that allow you to skip sponsors while watching YouTube videos"

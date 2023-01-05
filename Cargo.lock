@@ -520,7 +520,7 @@ checksum = "a74266e9af492b5237fe41ae972f360b506a477ca5d2e085045a1495b2703fb0"
 
 [[package]]
 name = "mpv-sponsorblock"
-version = "2.0.0-alpha.1"
+version = "2.0.0-alpha.2"
 dependencies = [
  "dirs",
  "env_logger",
