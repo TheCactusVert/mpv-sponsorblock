@@ -38,7 +38,7 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
             Event::PropertyChange(REPL_PROP_TIME, data) if let Some(event_handler) = event_handler.as_mut() => {
                 log::trace!("Received {} on reply {}", data.name(), REPL_PROP_TIME);
                 if let Some(time_pos) = data.data() {
-                    event_handler.time_change(&mpv, time_pos);
+                    event_handler.time_change(&mpv, &config, time_pos);
                 }
             }
             Event::PropertyChange(REPL_PROP_MUTE, data) if let Some(event_handler) = event_handler.as_mut() => {

@@ -55,11 +55,11 @@ impl EventHandler {
         capture.get(1).map(|m| m.as_str())
     }
 
-    pub fn time_change(&mut self, mpv: &Handle, time_pos: f64) {
+    pub fn time_change(&mut self, mpv: &Handle, config: &Config, time_pos: f64) {
         if let Some(s) = self.worker.get_skip_segment(time_pos) {
-            self.skip(&mpv, s); // Skip segments are priority
+            self.skip(&mpv, config, s); // Skip segments are priority
         } else if let Some(s) = self.worker.get_mute_segment(time_pos) {
-            self.mute(&mpv, s);
+            self.mute(&mpv, config, s);
         } else {
             self.reset(&mpv);
         }
@@ -78,14 +78,17 @@ impl EventHandler {
         mpv.unobserve_property(REPL_PROP_MUTE).unwrap();
     }
 
-    fn skip(&self, mpv: &Handle, working_segment: Segment) {
+    fn skip(&self, mpv: &Handle, config: &Config, working_segment: Segment) {
         mpv.set_property(NAME_PROP_TIME, working_segment.segment[1]).unwrap();
         log::info!("Skipped segment {}", working_segment);
-        mpv.osd_message(format!("Skipped segment {}", working_segment), Duration::from_secs(8))
-            .unwrap();
+
+        if config.skip_notice {
+            mpv.osd_message(format!("Skipped segment {}", working_segment), Duration::from_secs(8))
+                .unwrap();
+        }
     }
 
-    fn mute(&mut self, mpv: &Handle, working_segment: Segment) {
+    fn mute(&mut self, mpv: &Handle, config: &Config, working_segment: Segment) {
         // Working only if entering a new segment
         if self.mute_segment == Some(working_segment.clone()) {
             return;
@@ -95,8 +98,10 @@ impl EventHandler {
         if self.mute_sponsorblock || mpv.get_property::<String>(NAME_PROP_MUTE).unwrap() != "yes" {
             mpv.set_property(NAME_PROP_MUTE, "yes".to_string()).unwrap();
             log::info!("Mutting segment {}", working_segment);
-            mpv.osd_message(format!("Mutting segment {}", working_segment), Duration::from_secs(8))
-                .unwrap();
+            if config.skip_notice {
+                mpv.osd_message(format!("Mutting segment {}", working_segment), Duration::from_secs(8))
+                    .unwrap();
+            }
             self.mute_sponsorblock = true;
         } else {
             log::info!("Muttable segment found but mute was requested by user prior segment. Ignoring");
