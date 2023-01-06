@@ -124,9 +124,9 @@ impl EventHandler {
 
     fn poi(&self, mpv: &Handle, config: &Config, time_pos: f64) {
         mpv.set_property(NAME_PROP_TIME, time_pos).unwrap();
-        log::info!("Going to POI at {}", time_pos);
+        log::info!("Jumping to highlight at {}", time_pos);
         if config.skip_notice {
-            mpv.osd_message(format!("Going to POI at {}", time_pos), Duration::from_secs(8))
+            mpv.osd_message(format!("Jumping to highlight at {}", time_pos), Duration::from_secs(8))
                 .unwrap();
         }
     }
