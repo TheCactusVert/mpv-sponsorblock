@@ -72,6 +72,19 @@ impl EventHandler {
         }
     }
 
+    pub fn client_message<'a, T: AsRef<str> + PartialEq<&'a str>>(
+        &mut self,
+        mpv: &Handle,
+        config: &Config,
+        args: &[T],
+    ) {
+        if args == ["key-binding", "poi", "u-", "Alt+p", ""] {
+            if let Some(s) = self.worker.get_video_poi() {
+                self.poi(mpv, config, s);
+            }
+        }
+    }
+
     pub fn end_file(&mut self, mpv: &Handle) {
         self.reset(&mpv);
         mpv.unobserve_property(REPL_PROP_TIME).unwrap();
@@ -81,7 +94,6 @@ impl EventHandler {
     fn skip(&self, mpv: &Handle, config: &Config, working_segment: Segment) {
         mpv.set_property(NAME_PROP_TIME, working_segment.segment[1]).unwrap();
         log::info!("Skipped segment {}", working_segment);
-
         if config.skip_notice {
             mpv.osd_message(format!("Skipped segment {}", working_segment), Duration::from_secs(8))
                 .unwrap();
@@ -97,17 +109,26 @@ impl EventHandler {
         // If muted by the plugin do it again just for the log or if not muted do it
         if self.mute_sponsorblock || mpv.get_property::<String>(NAME_PROP_MUTE).unwrap() != "yes" {
             mpv.set_property(NAME_PROP_MUTE, "yes".to_string()).unwrap();
+            self.mute_sponsorblock = true;
             log::info!("Mutting segment {}", working_segment);
             if config.skip_notice {
                 mpv.osd_message(format!("Mutting segment {}", working_segment), Duration::from_secs(8))
                     .unwrap();
             }
-            self.mute_sponsorblock = true;
         } else {
             log::info!("Muttable segment found but mute was requested by user prior segment. Ignoring");
         }
 
         self.mute_segment = Some(working_segment);
+    }
+
+    fn poi(&self, mpv: &Handle, config: &Config, time_pos: f64) {
+        mpv.set_property(NAME_PROP_TIME, time_pos).unwrap();
+        log::info!("Going to POI at {}", time_pos);
+        if config.skip_notice {
+            mpv.osd_message(format!("Going to POI at {}", time_pos), Duration::from_secs(8))
+                .unwrap();
+        }
     }
 
     fn reset(&mut self, mpv: &Handle) {

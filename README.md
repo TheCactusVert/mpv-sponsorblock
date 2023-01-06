@@ -33,6 +33,13 @@ cp ./sponsorblock.toml ~/.config/mpv/sponsorblock.toml
 ```
 If you don't, only the sponsors segments will be skipped by default as specified by the [API](https://wiki.sponsor.ajay.app/w/API_Docs).
 
+You can add a binding to jump to the highlight of the video by adding this line to `input.conf`:
+```
+alt+p script-binding "sponsorblock/poi"
+```
+And you also need to add to the key `categories` the value `poi_highlight` and to the key `action_types` the value `poi` in `sponsorblock.toml`.
+
+
 ## Usage
 Play a YouTube video and segments you chose in the configuration file will be skipped or muted. If the video is entirely labeled as a category it will be shown at startup :
 ![celluloid](images/celluloid.png)
