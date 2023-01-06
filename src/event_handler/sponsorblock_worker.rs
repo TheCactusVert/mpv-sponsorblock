@@ -1,5 +1,4 @@
 use crate::config::Config;
-use crate::utils::get_youtube_id;
 
 use std::sync::{Arc, Mutex};
 
@@ -44,9 +43,7 @@ pub struct SponsorBlockWorker {
 }
 
 impl SponsorBlockWorker {
-    pub fn new(config: Config, path: String) -> Option<Self> {
-        let id = get_youtube_id(path)?; // If not a YT video then do nothing
-
+    pub fn new(config: Config, id: String) -> Self {
         log::trace!("Starting worker");
 
         let sorted_segments = SharedSortedSegments::default();
@@ -54,12 +51,12 @@ impl SponsorBlockWorker {
         let token = CancellationToken::new();
         let join = rt.spawn(Self::run(config, id, sorted_segments.clone(), token.clone()));
 
-        Some(SponsorBlockWorker {
+        SponsorBlockWorker {
             sorted_segments,
             rt,
             token,
             join,
-        })
+        }
     }
 
     async fn run(config: Config, id: String, sorted_segments: SharedSortedSegments, token: CancellationToken) {

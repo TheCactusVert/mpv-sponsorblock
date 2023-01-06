@@ -3,7 +3,6 @@
 
 mod config;
 mod event_handler;
-mod utils;
 
 use config::Config;
 use event_handler::{EventHandler, REPL_PROP_MUTE, REPL_PROP_TIME};

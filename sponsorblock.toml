@@ -6,3 +6,5 @@ categories = ["sponsor"]
 action_types = ["skip"]
 # Get segments for a video with extra privacy 
 privacy_api = false
+# Third party YouTube domains like Piped, Invidious or CloudTube
+domains = ["piped.kavin.rocks", "invidious.kavin.rocks"]
