@@ -48,7 +48,7 @@ impl EventHandler {
             domains_patterns.join("|")
         );
 
-        log::trace!("Regex pattern: {}", pattern);
+        log::trace!("YouTube ID regex pattern: {}", pattern);
 
         let regex = Regex::new(&pattern).ok()?;
         let capture = regex.captures(&path.as_ref())?;

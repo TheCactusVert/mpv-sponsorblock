@@ -25,7 +25,7 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
     // Show that the plugin has started
     log::debug!("Starting plugin SponsorBlock [{}]!", mpv.client_name());
 
-    let config = Config::default(); // Read config
+    let config = Config::get(); // Read config
     let mut event_handler: Option<EventHandler> = None; // Event handler of MPV
 
     loop {
