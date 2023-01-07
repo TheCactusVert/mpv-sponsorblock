@@ -7,20 +7,17 @@ mod event_handler;
 use config::Config;
 use event_handler::{EventHandler, REPL_PROP_MUTE, REPL_PROP_TIME};
 use mpv_client::{mpv_handle, Event, Handle};
-
-use env_logger::Env;
-
-static LOG_ENV: &str = "MPV_SPONSORBLOCK_LOG";
-static LOG_ENV_STYLE: &str = "MPV_SPONSORBLOCK_LOG_STYLE";
+use simple_logger::SimpleLogger;
 
 // MPV entry point
 #[no_mangle]
 extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
     let mpv = Handle::from_ptr(handle); // Wrap handle
 
-    // Init logger with custom env
-    let env = Env::new().filter(LOG_ENV).write_style(LOG_ENV_STYLE);
-    env_logger::init_from_env(env);
+    // Init logger
+    if let Err(e) = SimpleLogger::new().with_level(log::LevelFilter::Warn).env().init() {
+        log::warn!("Logger error: {}", e);
+    }
 
     // Show that the plugin has started
     log::debug!("Starting plugin SponsorBlock [{}]!", mpv.client_name());
