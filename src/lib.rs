@@ -30,12 +30,12 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
         match mpv.wait_event(-1.) {
             Event::StartFile(_data) => {
                 log::trace!("Received start-file event");
-                event_handler = EventHandler::new(&mpv, config.clone());
+                event_handler = EventHandler::new(&mpv, &config);
             }
             Event::PropertyChange(REPL_PROP_TIME, data) if let Some(event_handler) = event_handler.as_mut() => {
                 log::trace!("Received {} on reply {}", data.name(), REPL_PROP_TIME);
                 if let Some(time_pos) = data.data() {
-                    event_handler.time_change(&mpv, &config, time_pos);
+                    event_handler.time_change(time_pos);
                 }
             }
             Event::PropertyChange(REPL_PROP_MUTE, data) if let Some(event_handler) = event_handler.as_mut() => {
@@ -46,11 +46,11 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
             }
             Event::ClientMessage(data) => if let Some(event_handler) = event_handler.as_mut()  {
                 log::trace!("Received client-message event");
-                event_handler.client_message(&mpv, &config, data.args().iter().map(|v| v.as_str()).collect::<Vec<&str>>().as_slice());
+                event_handler.client_message(data.args().iter().map(|v| v.as_str()).collect::<Vec<&str>>().as_slice());
             }
             Event::EndFile if let Some(mut event_handler) = event_handler.take() => {
                 log::trace!("Received end-file event");
-                event_handler.end_file(&mpv);
+                event_handler.end_file();
             }
             Event::Shutdown => {
                 log::trace!("Received shutdown event");
