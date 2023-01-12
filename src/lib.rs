@@ -1,5 +1,4 @@
 #![feature(drain_filter)]
-#![feature(if_let_guard)]
 
 mod config;
 mod event_handler;
@@ -32,37 +31,38 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
                 log::trace!("Received start-file event");
                 event_handler = EventHandler::new(&mpv, &config);
             }
-            Event::PropertyChange(REPL_PROP_TIME, data) if let Some(event_handler) = event_handler.as_mut() => {
-                log::trace!("Received {} on reply {}", data.name(), REPL_PROP_TIME);
-                if let Some(time_pos) = data.data() {
-                    event_handler.time_change(time_pos);
+            Event::PropertyChange(REPL_PROP_TIME, data) => {
+                if let Some(event_handler) = event_handler.as_mut() {
+                    if let Some(time_pos) = data.data() {
+                        log::trace!("Received {} on reply {}", data.name(), REPL_PROP_TIME);
+                        event_handler.time_change(time_pos);
+                    }
                 }
             }
-            Event::PropertyChange(REPL_PROP_MUTE, data) if let Some(event_handler) = event_handler.as_mut() => {
-                log::trace!("Received {} on reply {}", data.name(), REPL_PROP_MUTE);
-                if let Some(mute) = data.data() {
-                    event_handler.mute_change(mute);
+            Event::PropertyChange(REPL_PROP_MUTE, data) => {
+                if let Some(event_handler) = event_handler.as_mut() {
+                    if let Some(mute) = data.data() {
+                        log::trace!("Received {} on reply {}", data.name(), REPL_PROP_MUTE);
+                        event_handler.mute_change(mute);
+                    }
                 }
             }
-            Event::ClientMessage(data) => if let Some(event_handler) = event_handler.as_mut()  {
-                log::trace!("Received client-message event");
-                event_handler.client_message(data.args().iter().map(|v| v.as_str()).collect::<Vec<&str>>().as_slice());
+            Event::ClientMessage(data) => {
+                if let Some(event_handler) = event_handler.as_mut() {
+                    log::trace!("Received client-message event");
+                    event_handler
+                        .client_message(data.args().iter().map(|v| v.as_str()).collect::<Vec<&str>>().as_slice());
+                }
             }
-            Event::EndFile if let Some(mut event_handler) = event_handler.take() => {
+            Event::EndFile => {
                 log::trace!("Received end-file event");
-                event_handler.end_file();
+                event_handler = None;
             }
             Event::Shutdown => {
                 log::trace!("Received shutdown event");
                 return 0;
             }
-            Event::QueueOverflow => {
-                log::warn!("Received queue-overflow event");
-                // TODO Might be good to handle ??
-            }
-            event => {
-                log::trace!("Ignoring {} event", event);
-            }
+            _ => {}
         }
     }
 }

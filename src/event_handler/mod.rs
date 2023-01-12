@@ -89,12 +89,6 @@ impl<'a> EventHandler<'a> {
         };
     }
 
-    pub fn end_file(&mut self) {
-        self.reset();
-        self.mpv.unobserve_property(REPL_PROP_TIME).unwrap();
-        self.mpv.unobserve_property(REPL_PROP_MUTE).unwrap();
-    }
-
     fn skip(&self, working_segment: Segment) {
         self.mpv
             .set_property(NAME_PROP_TIME, working_segment.segment[1])
@@ -169,5 +163,13 @@ impl<'a> EventHandler<'a> {
             );
             self.mpv.osd_message(message, Duration::from_secs(10)).unwrap();
         }
+    }
+}
+
+impl<'a> Drop for EventHandler<'a> {
+    fn drop(&mut self) {
+        self.reset();
+        self.mpv.unobserve_property(REPL_PROP_TIME).unwrap();
+        self.mpv.unobserve_property(REPL_PROP_MUTE).unwrap();
     }
 }
