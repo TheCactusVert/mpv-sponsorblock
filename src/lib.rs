@@ -46,7 +46,7 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
             }
             Event::ClientMessage(data) => if let Some(event_handler) = event_handler.as_mut()  {
                 log::trace!("Received client-message event");
-                event_handler.client_message(&mpv, &config, data.args().as_slice());
+                event_handler.client_message(&mpv, &config, data.args().iter().map(|v| v.as_str()).collect::<Vec<&str>>().as_slice());
             }
             Event::EndFile if let Some(mut event_handler) = event_handler.take() => {
                 log::trace!("Received end-file event");

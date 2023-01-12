@@ -17,7 +17,7 @@ where
     Ok(domains.into_iter().map(|domain| regex::escape(domain)).collect())
 }
 
-#[derive(Debug, serde_derive::Deserialize, Clone)]
+#[derive(serde_derive::Deserialize, Clone)]
 pub struct Config {
     #[serde(default = "default_server")]
     pub server_address: Url,

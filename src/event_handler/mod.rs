@@ -5,7 +5,7 @@ use sponsorblock_worker::SponsorBlockWorker;
 
 use std::time::Duration;
 
-use mpv_client::Handle;
+use mpv_client::{Format, Handle};
 use regex::Regex;
 use sponsorblock_client::Segment;
 
@@ -24,13 +24,18 @@ pub struct EventHandler {
 
 impl EventHandler {
     pub fn new(mpv: &Handle, config: Config) -> Option<Self> {
-        let path = mpv.get_property::<String>(NAME_PROP_PATH).unwrap();
+        let path: String = mpv.get_property(NAME_PROP_PATH).unwrap();
         let id = Self::get_youtube_id(&config, &path)?;
 
-        let worker = SponsorBlockWorker::new(config, id.to_string());
+        let client_parent = mpv.client_name();
+        let client = mpv.create_client(format!("{}-worker", client_parent)).ok()?;
 
-        mpv.observe_property::<f64>(REPL_PROP_TIME, NAME_PROP_TIME).unwrap();
-        mpv.observe_property::<String>(REPL_PROP_MUTE, NAME_PROP_MUTE).unwrap();
+        let worker = SponsorBlockWorker::new(client, client_parent.to_string(), config, id.to_string());
+
+        mpv.observe_property(REPL_PROP_TIME, NAME_PROP_TIME, f64::MPV_FORMAT)
+            .unwrap();
+        mpv.observe_property(REPL_PROP_MUTE, NAME_PROP_MUTE, String::MPV_FORMAT)
+            .unwrap();
 
         Some(Self {
             worker,
@@ -72,17 +77,12 @@ impl EventHandler {
         }
     }
 
-    pub fn client_message<'a, T: AsRef<str> + PartialEq<&'a str>>(
-        &mut self,
-        mpv: &Handle,
-        config: &Config,
-        args: &[T],
-    ) {
-        if args == ["key-binding", "poi", "u-", "Alt+p", ""] {
-            if let Some(s) = self.worker.get_video_poi() {
-                self.poi(mpv, config, s);
-            }
-        }
+    pub fn client_message(&mut self, mpv: &Handle, config: &Config, args: &[&str]) {
+        match args {
+            ["key-binding", "poi", "u-", ..] => self.poi_requested(mpv, config),
+            ["segments-fetched"] => self.segments_fetched(mpv),
+            _ => {}
+        };
     }
 
     pub fn end_file(&mut self, mpv: &Handle) {
@@ -107,7 +107,8 @@ impl EventHandler {
         }
 
         // If muted by the plugin do it again just for the log or if not muted do it
-        if self.mute_sponsorblock || mpv.get_property::<String>(NAME_PROP_MUTE).unwrap() != "yes" {
+        let mute: String = mpv.get_property(NAME_PROP_MUTE).unwrap();
+        if self.mute_sponsorblock || mute != "yes" {
             mpv.set_property(NAME_PROP_MUTE, "yes".to_string()).unwrap();
             self.mute_sponsorblock = true;
             log::info!("Mutting segment {}", working_segment);
@@ -120,15 +121,6 @@ impl EventHandler {
         }
 
         self.mute_segment = Some(working_segment);
-    }
-
-    fn poi(&self, mpv: &Handle, config: &Config, time_pos: f64) {
-        mpv.set_property(NAME_PROP_TIME, time_pos).unwrap();
-        log::info!("Jumping to highlight at {}", time_pos);
-        if config.skip_notice {
-            mpv.osd_message(format!("Jumping to highlight at {}", time_pos), Duration::from_secs(8))
-                .unwrap();
-        }
     }
 
     fn reset(&mut self, mpv: &Handle) {
@@ -147,5 +139,26 @@ impl EventHandler {
         }
 
         self.mute_segment = None
+    }
+
+    fn poi_requested(&self, mpv: &Handle, config: &Config) {
+        if let Some(time_pos) = self.worker.get_video_poi() {
+            mpv.set_property(NAME_PROP_TIME, time_pos).unwrap();
+            log::info!("Jumping to highlight at {}", time_pos);
+            if config.skip_notice {
+                mpv.osd_message(format!("Jumping to highlight at {}", time_pos), Duration::from_secs(8))
+                    .unwrap();
+            }
+        }
+    }
+
+    fn segments_fetched(&self, mpv: &Handle) {
+        if let Some(category) = self.worker.get_video_category() {
+            let message = format!(
+                "This entire video is labeled as '{}' and is too tightly integrated to be able to separate",
+                category
+            );
+            mpv.osd_message(message, Duration::from_secs(10)).unwrap();
+        }
     }
 }

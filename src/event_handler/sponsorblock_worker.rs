@@ -2,6 +2,7 @@ use crate::config::Config;
 
 use std::sync::{Arc, Mutex};
 
+use mpv_client::Handle;
 use reqwest::StatusCode;
 use sponsorblock_client::*;
 use tokio::runtime::Runtime;
@@ -43,13 +44,20 @@ pub struct SponsorBlockWorker {
 }
 
 impl SponsorBlockWorker {
-    pub fn new(config: Config, id: String) -> Self {
+    pub fn new(client: Handle, client_parent: String, config: Config, id: String) -> Self {
         log::trace!("Starting worker");
 
         let sorted_segments = SharedSortedSegments::default();
         let rt = Runtime::new().unwrap();
         let token = CancellationToken::new();
-        let join = rt.spawn(Self::run(config, id, sorted_segments.clone(), token.clone()));
+        let join = rt.spawn(Self::run(
+            client,
+            client_parent,
+            config,
+            id,
+            sorted_segments.clone(),
+            token.clone(),
+        ));
 
         SponsorBlockWorker {
             sorted_segments,
@@ -59,7 +67,14 @@ impl SponsorBlockWorker {
         }
     }
 
-    async fn run(config: Config, id: String, sorted_segments: SharedSortedSegments, token: CancellationToken) {
+    async fn run(
+        client: Handle,
+        client_parent: String,
+        config: Config,
+        id: String,
+        sorted_segments: SharedSortedSegments,
+        token: CancellationToken,
+    ) {
         let fetch = if config.privacy_api {
             Either::Left(fetch_with_privacy(
                 config.server_address,
@@ -85,6 +100,9 @@ impl SponsorBlockWorker {
                 log::info!("Found {} muttable segment(s)", sorted.mutable.len());
                 log::info!("Highlight {}", if sorted.poi.is_some() { "found" } else { "not found" });
                 log::info!("Category {}", if sorted.full.is_some() { "found" } else { "not found" });
+                client
+                    .command(["script-message-to", client_parent.as_str(), "segments-fetched"])
+                    .unwrap();
                 Some(sorted)
             }
             Err(e) if e.status() == Some(StatusCode::NOT_FOUND) => {
