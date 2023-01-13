@@ -22,23 +22,31 @@ cargo build --release
 ```
 
 ## Installation
-Move the lib generated to your MPV (or Celluloid) `scripts` folder.
+### Plugin
+- MPV: copy the lib generated to your `scripts` folder:
 ```bash
 cp ./target/release/libmpv_sponsorblock.so ~/.config/mpv/scripts/sponsorblock.so
 ```
+- Celluloid : copy the lib generated to your `scripts` folder:
+```bash
+cp ./target/release/libmpv_sponsorblock.so ~/.config/celluloid/scripts/sponsorblock.so
+```
 
-You can choose to install the configuration file too:
+### Configuration
+Copy the exemple configuration file `sponsorblock.toml` into your **MPV** folder:
 ```bash
 cp ./sponsorblock.toml ~/.config/mpv/sponsorblock.toml
 ```
-If you don't, only the sponsors segments will be skipped by default as specified by the [API](https://wiki.sponsor.ajay.app/w/API_Docs).
 
+If no configuration file is found, only the sponsors segments will be skipped as specified by the [API](https://wiki.sponsor.ajay.app/w/API_Docs).
+
+### Keybinding
 You can add a binding to jump to the highlight of the video by adding this line to `input.conf`:
 ```
 alt+p script-binding "sponsorblock/poi"
 ```
-And you also need to add to the key `categories` the value `poi_highlight` and to the key `action_types` the value `poi` in `sponsorblock.toml`.
 
+You also need to add to the key `categories` the value `poi_highlight` and to the key `action_types` the value `poi` in your `sponsorblock.toml`.
 
 ## Usage
 Play a YouTube video and segments you chose in the configuration file will be skipped or muted. If the video is entirely labeled as a category it will be shown at startup :
