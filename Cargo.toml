@@ -19,16 +19,16 @@ dirs = "4.0.0"
 log = "0.4.17"
 mpv-client = "0.4.1"
 #mpv-client = { path = "../mpv-client" }
-regex = "1.7.0"
-reqwest = "0.11.13"
+regex = "1.7.1"
+reqwest = "0.11.14"
 serde = "1.0.152"
 serde_derive = "1.0.152"
 simple_logger = { version = "4.0.0", default-features = false, features = ["colors"] }
 sponsorblock-client = { git = "https://github.com/TheCactusVert/sponsorblock-client.git" }
 #sponsorblock-client = { path = "../sponsorblock-client" }
-tokio = { version = "1.24.1", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.25.0", features = ["rt-multi-thread", "macros"] }
 tokio-util = "0.7.4"
-toml = "0.5.10"
+toml = "0.5.11"
 url = { version = "2.3.1", features = ["serde"] }
 
 [profile.release]
