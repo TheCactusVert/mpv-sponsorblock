@@ -36,7 +36,7 @@ impl<'a> EventHandler<'a> {
 
         mpv.observe_property(REPL_PROP_TIME, NAME_PROP_TIME, f64::MPV_FORMAT)
             .unwrap();
-        mpv.observe_property(REPL_PROP_MUTE, NAME_PROP_MUTE, String::MPV_FORMAT)
+        mpv.observe_property(REPL_PROP_MUTE, NAME_PROP_MUTE, bool::MPV_FORMAT)
             .unwrap();
 
         Some(Self {
@@ -74,9 +74,9 @@ impl<'a> EventHandler<'a> {
         }
     }
 
-    pub fn mute_change(&mut self, mute: String) {
+    pub fn mute_change(&mut self, mute: bool) {
         // If muted by the plugin and request unmute then plugin doesn't own mute
-        if self.mute_sponsorblock && mute == "no" {
+        if self.mute_sponsorblock && !mute {
             self.mute_sponsorblock = false;
         }
     }
@@ -108,9 +108,9 @@ impl<'a> EventHandler<'a> {
         }
 
         // If muted by the plugin do it again just for the log or if not muted do it
-        let mute: String = self.mpv.get_property(NAME_PROP_MUTE).unwrap();
-        if self.mute_sponsorblock || mute != "yes" {
-            self.mpv.set_property(NAME_PROP_MUTE, "yes".to_string()).unwrap();
+        let mute: bool = self.mpv.get_property(NAME_PROP_MUTE).unwrap();
+        if self.mute_sponsorblock || !mute {
+            self.mpv.set_property(NAME_PROP_MUTE, true).unwrap();
             self.mute_sponsorblock = true;
             log::info!("Mutting segment {}", working_segment);
             if self.config.skip_notice {
@@ -133,7 +133,7 @@ impl<'a> EventHandler<'a> {
 
         // If muted the by plugin then unmute
         if self.mute_sponsorblock {
-            self.mpv.set_property(NAME_PROP_MUTE, "no".to_string()).unwrap();
+            self.mpv.set_property(NAME_PROP_MUTE, false).unwrap();
             log::info!("Unmutting");
             self.mute_sponsorblock = false;
         } else {
