@@ -22,18 +22,20 @@ cargo build --release
 ```
 
 ## Installation
-### Plugin
-- **MPV**: copy the lib generated to your `scripts` folder:
+### MPV
+- Copy the lib generated to your `scripts` folder:
 ```bash
 cp ./target/release/libmpv_sponsorblock.so ~/.config/mpv/scripts/sponsorblock.so
 ```
-- **Celluloid** : copy the lib generated to your `scripts` folder:
+
+### Celluloid
+- Copy the lib generated to your `scripts` folder:
 ```bash
 cp ./target/release/libmpv_sponsorblock.so ~/.config/celluloid/scripts/sponsorblock.so
 ```
 
 ## Configuration
-Copy the exemple configuration file `sponsorblock.toml` into your **MPV** folder:
+Copy the exemple configuration file `sponsorblock.toml` into your **MPV** (not Celluloid) folder:
 ```bash
 cp ./sponsorblock.toml ~/.config/mpv/sponsorblock.toml
 ```
