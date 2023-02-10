@@ -32,7 +32,7 @@ cp ./target/release/libmpv_sponsorblock.so ~/.config/mpv/scripts/sponsorblock.so
 cp ./target/release/libmpv_sponsorblock.so ~/.config/celluloid/scripts/sponsorblock.so
 ```
 
-### Configuration
+## Configuration
 Copy the exemple configuration file `sponsorblock.toml` into your **MPV** folder:
 ```bash
 cp ./sponsorblock.toml ~/.config/mpv/sponsorblock.toml
@@ -40,13 +40,15 @@ cp ./sponsorblock.toml ~/.config/mpv/sponsorblock.toml
 
 If no configuration file is found, only the sponsors segments will be skipped as specified by the [API](https://wiki.sponsor.ajay.app/w/API_Docs).
 
-### Keybinding
+## Keybindings
+
+### Highlight
 You can add a binding to jump to the highlight of the video by adding this line to `input.conf`:
 ```
 alt+p script-binding "sponsorblock/poi"
 ```
 
-You also need to add these values to their associated keys in your `sponsorblock.toml`.
+You also need to add these values to their associated keys in your `sponsorblock.toml`:
 ```toml
 categories = ["poi_highlight"]
 action_types = ["poi"]
