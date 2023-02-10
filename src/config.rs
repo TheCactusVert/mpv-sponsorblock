@@ -13,8 +13,8 @@ fn from_unescaped<'de, D>(deserializer: D) -> Result<HashSet<String>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let domains: HashSet<&str> = Deserialize::deserialize(deserializer)?;
-    Ok(domains.into_iter().map(|domain| regex::escape(domain)).collect())
+    let domains: HashSet<String> = Deserialize::deserialize(deserializer)?;
+    Ok(domains.into_iter().map(|domain| regex::escape(&domain)).collect())
 }
 
 #[derive(serde_derive::Deserialize, Clone)]
