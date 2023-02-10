@@ -8,20 +8,16 @@ Why not!
 - Can I write my own plugin in Rust ?
 Yes! Just follow the example [here](https://crates.io/crates/mpv-client) and you will be ready.
 
-## Prerequisites
+## Requirements
 
-### Build dependencies
-- rust
-- openssl
-
-### Runtime dependencies
 - openssl
 
 ## Build
+
 Build the plugin:
 ```bash
 rustup override set nightly
-cargo build --release
+cargo build --release --locked
 ```
 
 ## Installation
@@ -35,7 +31,6 @@ cp ./target/release/libmpv_sponsorblock.so ~/.config/mpv/scripts/sponsorblock.so
 ```
 
 </details>
-
 
 <details>
 <summary>Celluloid</summary>
