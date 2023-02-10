@@ -1,6 +1,6 @@
 [package]
 name = "mpv-sponsorblock"
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.3"
 edition = "2021"
 authors = ["Kevin Gavrois <kevin@gavrois.fr>"]
 description = "MPV plugin that allow you to skip sponsors while watching YouTube videos"
@@ -15,7 +15,6 @@ crate-type = ["cdylib"]      # Creates dynamic lib
 
 [dependencies]
 dirs = "4.0.0"
-#env_logger = "0.10.0"
 log = "0.4.17"
 mpv-client = "0.4.1"
 #mpv-client = { path = "../mpv-client" }
