@@ -2,10 +2,10 @@
 
 A port of [SponsorBlock](https://github.com/ajayyy/SponsorBlock) for MPV (or Celluloid) written in Rust.
 
-- Why write a MPV plugin in Rust ?
-Why not!
+## Questions
 
-- Can I write my own plugin in Rust ?
+### Can I write my own plugin in Rust ?
+
 Yes! Just follow the example [here](https://crates.io/crates/mpv-client) and you will be ready.
 
 ## Requirements
@@ -14,9 +14,15 @@ Yes! Just follow the example [here](https://crates.io/crates/mpv-client) and you
 
 ## Build
 
-Build the plugin:
+Set Rust to nightly channel:
+
 ```bash
 rustup override set nightly
+```
+
+Build the plugin:
+
+```bash
 cargo build --release --locked
 ```
 
@@ -26,6 +32,7 @@ cargo build --release --locked
 <summary>MPV</summary>
 
 Copy the lib generated to your `scripts` folder:
+
 ```bash
 cp ./target/release/libmpv_sponsorblock.so ~/.config/mpv/scripts/sponsorblock.so
 ```
@@ -36,6 +43,7 @@ cp ./target/release/libmpv_sponsorblock.so ~/.config/mpv/scripts/sponsorblock.so
 <summary>Celluloid</summary>
 
 Copy the lib generated to your `scripts` folder:
+
 ```bash
 cp ./target/release/libmpv_sponsorblock.so ~/.config/celluloid/scripts/sponsorblock.so
 ```
@@ -56,11 +64,13 @@ If no configuration file is found, only the sponsors segments will be skipped as
 ### Highlight
 
 You can add a binding to jump to the highlight of the video by adding this line to `input.conf`:
+
 ```
 alt+p script-binding "sponsorblock/poi"
 ```
 
 You also need to add these values to their associated keys in your `sponsorblock.toml`:
+
 ```toml
 categories = ["poi_highlight"]
 action_types = ["poi"]
