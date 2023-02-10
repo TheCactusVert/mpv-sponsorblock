@@ -8,39 +8,46 @@ Why not!
 - Can I write my own plugin in Rust ?
 Yes! Just follow the example [here](https://crates.io/crates/mpv-client) and you will be ready.
 
-# Prerequisites
+## Prerequisites
 
-## Build dependencies
+### Build dependencies
 - rust
 - openssl
 
-## Runtime dependencies
+### Runtime dependencies
 - openssl
 
-# Build
+## Build
 Build the plugin:
 ```bash
 rustup override set nightly
 cargo build --release
 ```
 
-# Installation
+## Installation
 
-## MPV
+<details>
+<summary>MPV</summary>
 
-- Copy the lib generated to your `scripts` folder:
+Copy the lib generated to your `scripts` folder:
 ```bash
 cp ./target/release/libmpv_sponsorblock.so ~/.config/mpv/scripts/sponsorblock.so
 ```
 
-## Celluloid
+</details>
 
-- Copy the lib generated to your `scripts` folder:
+
+<details>
+<summary>Celluloid</summary>
+
+Copy the lib generated to your `scripts` folder:
 ```bash
 cp ./target/release/libmpv_sponsorblock.so ~/.config/celluloid/scripts/sponsorblock.so
 ```
 
-# Configuration
+</details>
+
+## Configuration
 
 Copy the exemple configuration file `sponsorblock.toml` into your **MPV** (not Celluloid) folder:
 ```bash
@@ -49,9 +56,9 @@ cp ./sponsorblock.toml ~/.config/mpv/sponsorblock.toml
 
 If no configuration file is found, only the sponsors segments will be skipped as specified by the [API](https://wiki.sponsor.ajay.app/w/API_Docs).
 
-# Keybindings
+## Keybindings
 
-## Highlight
+### Highlight
 
 You can add a binding to jump to the highlight of the video by adding this line to `input.conf`:
 ```
@@ -64,7 +71,7 @@ categories = ["poi_highlight"]
 action_types = ["poi"]
 ```
 
-# Usage
+## Usage
 
 Play a YouTube video and segments you chose in the configuration file will be skipped or muted.
 
