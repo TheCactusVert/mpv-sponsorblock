@@ -2,7 +2,7 @@ use crate::config::Config;
 
 use std::sync::{Arc, Mutex};
 
-use mpv_client::Handle;
+use mpv_client::Client;
 use reqwest::StatusCode;
 use sponsorblock_client::*;
 use tokio::runtime::Runtime;
@@ -44,7 +44,7 @@ pub struct SponsorBlockWorker {
 }
 
 impl SponsorBlockWorker {
-    pub fn new(client: Handle, client_parent: String, config: Config, id: String) -> Self {
+    pub fn new(client: Client, client_parent: String, config: Config, id: String) -> Self {
         log::trace!("Starting worker");
 
         let sorted_segments = SharedSortedSegments::default();
@@ -68,7 +68,7 @@ impl SponsorBlockWorker {
     }
 
     async fn run(
-        client: Handle,
+        client: Client,
         client_parent: String,
         config: Config,
         id: String,

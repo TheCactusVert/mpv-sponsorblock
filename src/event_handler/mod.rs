@@ -30,7 +30,7 @@ impl<'a> EventHandler<'a> {
         let id = Self::get_youtube_id(&config, &path)?;
 
         let client_parent = mpv.client_name();
-        let client = mpv.create_client(format!("{}-worker", client_parent)).ok()?;
+        let client = mpv.create_weak_client(format!("{}-worker", client_parent)).ok()?;
 
         let worker = SponsorBlockWorker::new(client, client_parent.to_string(), config.clone(), id.to_string());
 
