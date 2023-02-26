@@ -3,10 +3,10 @@ mod worker;
 use crate::config::Config;
 use worker::Worker;
 
-use std::ops::Deref;
 use std::time::Duration;
+use std::{ops::Deref, os::raw::c_int};
 
-use mpv_client::{mpv_handle, Format, Handle};
+use mpv_client::{mpv_handle, Event, Format, Handle};
 use regex::Regex;
 use sponsorblock_client::Segment;
 
@@ -14,8 +14,8 @@ static NAME_PROP_PATH: &str = "path";
 static NAME_PROP_TIME: &str = "time-pos";
 static NAME_PROP_MUTE: &str = "mute";
 
-pub const REPL_PROP_TIME: u64 = 1;
-pub const REPL_PROP_MUTE: u64 = 2;
+const REPL_PROP_TIME: u64 = 1;
+const REPL_PROP_MUTE: u64 = 2;
 
 pub struct Client {
     mpv: Handle,
@@ -36,7 +36,44 @@ impl Client {
         }
     }
 
-    pub fn start_file(&mut self) {
+    pub fn exec(&mut self) -> c_int {
+        loop {
+            // Wait for MPV events indefinitely
+            match self.wait_event(-1.) {
+                Event::StartFile(_data) => {
+                    log::trace!("Received start-file event");
+                    self.start_file();
+                }
+                Event::PropertyChange(REPL_PROP_TIME, data) => {
+                    if let Some(time_pos) = data.data() {
+                        log::trace!("Received {} on reply {}", data.name(), REPL_PROP_TIME);
+                        self.time_change(time_pos);
+                    }
+                }
+                Event::PropertyChange(REPL_PROP_MUTE, data) => {
+                    if let Some(mute) = data.data() {
+                        log::trace!("Received {} on reply {}", data.name(), REPL_PROP_MUTE);
+                        self.mute_change(mute);
+                    }
+                }
+                Event::ClientMessage(data) => {
+                    log::trace!("Received client-message event");
+                    self.client_message(data.args().iter().map(|v| v.as_str()).collect::<Vec<&str>>().as_slice());
+                }
+                Event::EndFile => {
+                    log::trace!("Received end-file event");
+                    self.end_file();
+                }
+                Event::Shutdown => {
+                    log::trace!("Received shutdown event");
+                    return 0;
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn start_file(&mut self) {
         let path: String = self.get_property(NAME_PROP_PATH).unwrap();
         if let Some(id) = self.get_youtube_id(&path) {
             let client_parent = self.client_name();
@@ -65,14 +102,14 @@ impl Client {
         }
     }
 
-    pub fn mute_change(&mut self, mute: bool) {
+    fn mute_change(&mut self, mute: bool) {
         // If muted by the plugin and request unmute then plugin doesn't own mute
         if self.mute_sponsorblock && !mute {
             self.mute_sponsorblock = false;
         }
     }
 
-    pub fn client_message(&mut self, args: &[&str]) {
+    fn client_message(&mut self, args: &[&str]) {
         match args {
             ["key-binding", "poi", "u-", ..] => self.poi_requested(),
             ["segments-fetched"] => self.segments_fetched(),
@@ -80,7 +117,7 @@ impl Client {
         };
     }
 
-    pub fn end_file(&mut self) {
+    fn end_file(&mut self) {
         self.worker.stop();
         self.reset();
         self.unobserve_property(REPL_PROP_TIME).unwrap();
