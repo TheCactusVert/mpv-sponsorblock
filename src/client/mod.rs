@@ -1,11 +1,12 @@
-mod sponsorblock_worker;
+mod worker;
 
 use crate::config::Config;
-use sponsorblock_worker::SponsorBlockWorker;
+use worker::Worker;
 
+use std::ops::Deref;
 use std::time::Duration;
 
-use mpv_client::{Format, Handle};
+use mpv_client::{mpv_handle, Format, Handle};
 use regex::Regex;
 use sponsorblock_client::Segment;
 
@@ -16,52 +17,42 @@ static NAME_PROP_MUTE: &str = "mute";
 pub const REPL_PROP_TIME: u64 = 1;
 pub const REPL_PROP_MUTE: u64 = 2;
 
-pub struct EventHandler<'a> {
-    mpv: &'a Handle,
-    config: &'a Config,
-    worker: SponsorBlockWorker,
+pub struct Client {
+    mpv: Handle,
+    config: Config,
+    worker: Worker,
     mute_segment: Option<Segment>,
     mute_sponsorblock: bool,
 }
 
-impl<'a> EventHandler<'a> {
-    pub fn new(mpv: &'a Handle, config: &'a Config) -> Option<Self> {
-        let path: String = mpv.get_property(NAME_PROP_PATH).unwrap();
-        let id = Self::get_youtube_id(&config, &path)?;
-
-        let client_parent = mpv.client_name();
-        let client = mpv.create_weak_client(format!("{}-worker", client_parent)).ok()?;
-
-        let worker = SponsorBlockWorker::new(client, client_parent.to_string(), config.clone(), id.to_string());
-
-        mpv.observe_property(REPL_PROP_TIME, NAME_PROP_TIME, f64::MPV_FORMAT)
-            .unwrap();
-        mpv.observe_property(REPL_PROP_MUTE, NAME_PROP_MUTE, bool::MPV_FORMAT)
-            .unwrap();
-
-        Some(Self {
-            mpv,
-            config,
-            worker,
+impl Client {
+    pub fn from_ptr(handle: *mut mpv_handle) -> Self {
+        Self {
+            mpv: Handle::from_ptr(handle),
+            config: Config::get(),
+            worker: Worker::new(),
             mute_segment: None,
             mute_sponsorblock: false,
-        })
+        }
     }
 
-    fn get_youtube_id<'b>(config: &Config, path: &'b str) -> Option<&'b str> {
-        let mut domains_patterns = vec![r"(?:www\.|m\.|)youtube\.com", r"(?:www\.|)youtu\.be"];
-        config.domains_escaped.iter().for_each(|r| domains_patterns.push(r));
+    pub fn start_file(&mut self) {
+        let path: String = self.get_property(NAME_PROP_PATH).unwrap();
+        if let Some(id) = self.get_youtube_id(&path) {
+            let client_parent = self.client_name();
 
-        let pattern = format!(
-            r"https?://(?:{}).*(?:/|%3D|v=|vi=)([0-9A-z-_]{{11}})(?:[%#?&]|$)",
-            domains_patterns.join("|")
-        );
+            self.worker.start(
+                self.create_client(format!("{}-worker", client_parent)).unwrap(),
+                client_parent.to_string(),
+                self.config.clone(),
+                id.to_string(),
+            );
 
-        log::trace!("YouTube ID regex pattern: {}", pattern);
-
-        let regex = Regex::new(&pattern).ok()?;
-        let capture = regex.captures(&path.as_ref())?;
-        capture.get(1).map(|m| m.as_str())
+            self.observe_property(REPL_PROP_TIME, NAME_PROP_TIME, f64::MPV_FORMAT)
+                .unwrap();
+            self.observe_property(REPL_PROP_MUTE, NAME_PROP_MUTE, bool::MPV_FORMAT)
+                .unwrap();
+        }
     }
 
     pub fn time_change(&mut self, time_pos: f64) {
@@ -89,14 +80,37 @@ impl<'a> EventHandler<'a> {
         };
     }
 
+    pub fn end_file(&mut self) {
+        self.worker.stop();
+        self.reset();
+        self.unobserve_property(REPL_PROP_TIME).unwrap();
+        self.unobserve_property(REPL_PROP_MUTE).unwrap();
+    }
+
+    fn get_youtube_id<'b>(&self, path: &'b str) -> Option<&'b str> {
+        let mut domains_patterns = vec![r"(?:www\.|m\.|)youtube\.com", r"(?:www\.|)youtu\.be"];
+        self.config
+            .domains_escaped
+            .iter()
+            .for_each(|r| domains_patterns.push(r));
+
+        let pattern = format!(
+            r"https?://(?:{}).*(?:/|%3D|v=|vi=)([0-9A-z-_]{{11}})(?:[%#?&]|$)",
+            domains_patterns.join("|")
+        );
+
+        log::trace!("YouTube ID regex pattern: {}", pattern);
+
+        let regex = Regex::new(&pattern).ok()?;
+        let capture = regex.captures(&path.as_ref())?;
+        capture.get(1).map(|m| m.as_str())
+    }
+
     fn skip(&self, working_segment: Segment) {
-        self.mpv
-            .set_property(NAME_PROP_TIME, working_segment.segment[1])
-            .unwrap();
+        self.set_property(NAME_PROP_TIME, working_segment.segment[1]).unwrap();
         log::info!("Skipped segment {}", working_segment);
         if self.config.skip_notice {
-            self.mpv
-                .osd_message(format!("Skipped segment {}", working_segment), Duration::from_secs(8))
+            self.osd_message(format!("Skipped segment {}", working_segment), Duration::from_secs(8))
                 .unwrap();
         }
     }
@@ -108,14 +122,13 @@ impl<'a> EventHandler<'a> {
         }
 
         // If muted by the plugin do it again just for the log or if not muted do it
-        let mute: bool = self.mpv.get_property(NAME_PROP_MUTE).unwrap();
+        let mute: bool = self.get_property(NAME_PROP_MUTE).unwrap();
         if self.mute_sponsorblock || !mute {
-            self.mpv.set_property(NAME_PROP_MUTE, true).unwrap();
+            self.set_property(NAME_PROP_MUTE, true).unwrap();
             self.mute_sponsorblock = true;
             log::info!("Mutting segment {}", working_segment);
             if self.config.skip_notice {
-                self.mpv
-                    .osd_message(format!("Mutting segment {}", working_segment), Duration::from_secs(8))
+                self.osd_message(format!("Mutting segment {}", working_segment), Duration::from_secs(8))
                     .unwrap();
             }
         } else {
@@ -133,7 +146,7 @@ impl<'a> EventHandler<'a> {
 
         // If muted the by plugin then unmute
         if self.mute_sponsorblock {
-            self.mpv.set_property(NAME_PROP_MUTE, false).unwrap();
+            self.set_property(NAME_PROP_MUTE, false).unwrap();
             log::info!("Unmutting");
             self.mute_sponsorblock = false;
         } else {
@@ -145,11 +158,10 @@ impl<'a> EventHandler<'a> {
 
     fn poi_requested(&self) {
         if let Some(time_pos) = self.worker.get_video_poi() {
-            self.mpv.set_property(NAME_PROP_TIME, time_pos).unwrap();
+            self.set_property(NAME_PROP_TIME, time_pos).unwrap();
             log::info!("Jumping to highlight at {}", time_pos);
             if self.config.skip_notice {
-                self.mpv
-                    .osd_message(format!("Jumping to highlight at {}", time_pos), Duration::from_secs(8))
+                self.osd_message(format!("Jumping to highlight at {}", time_pos), Duration::from_secs(8))
                     .unwrap();
             }
         }
@@ -161,15 +173,16 @@ impl<'a> EventHandler<'a> {
                 "This entire video is labeled as '{}' and is too tightly integrated to be able to separate",
                 category
             );
-            self.mpv.osd_message(message, Duration::from_secs(10)).unwrap();
+            self.osd_message(message, Duration::from_secs(10)).unwrap();
         }
     }
 }
 
-impl<'a> Drop for EventHandler<'a> {
-    fn drop(&mut self) {
-        self.reset();
-        self.mpv.unobserve_property(REPL_PROP_TIME).unwrap();
-        self.mpv.unobserve_property(REPL_PROP_MUTE).unwrap();
+impl Deref for Client {
+    type Target = Handle;
+
+    #[inline]
+    fn deref(&self) -> &Handle {
+        &self.mpv
     }
 }

@@ -36,35 +36,42 @@ impl SortedSegments {
 
 type SharedSortedSegments = Arc<Mutex<Option<SortedSegments>>>;
 
-pub struct SponsorBlockWorker {
+pub struct Worker {
     sorted_segments: SharedSortedSegments,
     rt: Runtime,
-    token: CancellationToken,
-    join: JoinHandle<()>,
+    thread: Option<(CancellationToken, JoinHandle<()>)>,
 }
 
-impl SponsorBlockWorker {
-    pub fn new(client: Client, client_parent: String, config: Config, id: String) -> Self {
-        log::trace!("Starting worker");
+impl Worker {
+    pub fn new() -> Self {
+        Self {
+            sorted_segments: SharedSortedSegments::default(),
+            rt: Runtime::new().unwrap(),
+            thread: None,
+        }
+    }
 
-        let sorted_segments = SharedSortedSegments::default();
-        let rt = Runtime::new().unwrap();
+    pub fn start(&mut self, client: Client, client_parent: String, config: Config, id: String) {
         let token = CancellationToken::new();
-        let join = rt.spawn(Self::run(
+        let join = self.rt.spawn(Self::run(
             client,
             client_parent,
             config,
             id,
-            sorted_segments.clone(),
+            self.sorted_segments.clone(),
             token.clone(),
         ));
 
-        SponsorBlockWorker {
-            sorted_segments,
-            rt,
-            token,
-            join,
+        self.thread = Some((token, join));
+    }
+
+    pub fn stop(&mut self) {
+        if let Some(mut thread) = self.thread.take() {
+            thread.0.cancel();
+            self.rt.block_on(&mut thread.1).unwrap();
         }
+
+        *self.sorted_segments.lock().unwrap() = None;
     }
 
     async fn run(
@@ -92,8 +99,7 @@ impl SponsorBlockWorker {
         };
 
         // Lock only when data is received
-        let mut sorted_segments = sorted_segments.lock().unwrap();
-        (*sorted_segments) = match segments {
+        *sorted_segments.lock().unwrap() = match segments {
             Ok(s) => {
                 let sorted = SortedSegments::from(s);
                 log::info!("Found {} skippable segment(s)", sorted.skippable.len());
@@ -148,13 +154,5 @@ impl SponsorBlockWorker {
             .unwrap()
             .as_ref()
             .and_then(|s| s.full.as_ref().map(|s| s.category))
-    }
-}
-
-impl Drop for SponsorBlockWorker {
-    fn drop(&mut self) {
-        log::trace!("Stopping worker");
-        self.token.cancel();
-        self.rt.block_on(&mut self.join).unwrap();
     }
 }
