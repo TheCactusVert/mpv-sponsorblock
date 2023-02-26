@@ -85,7 +85,6 @@ impl Client {
                 self.config.clone(),
                 id.to_string(),
             );
-
             self.observe_property(REPL_PROP_TIME, NAME_PROP_TIME, f64::MPV_FORMAT)?;
             self.observe_property(REPL_PROP_MUTE, NAME_PROP_MUTE, bool::MPV_FORMAT)?;
         }
@@ -121,9 +120,9 @@ impl Client {
 
     fn end_file(&mut self) -> Result<()> {
         self.worker.stop();
-        self.reset()?;
         self.unobserve_property(REPL_PROP_TIME)?;
         self.unobserve_property(REPL_PROP_MUTE)?;
+        self.reset()?;
         Ok(())
     }
 
@@ -139,8 +138,6 @@ impl Client {
             domains_patterns.join("|")
         );
 
-        log::trace!("YouTube ID regex pattern: {}", pattern);
-
         let regex = Regex::new(&pattern).ok()?;
         let capture = regex.captures(&path.as_ref())?;
         capture.get(1).map(|m| m.as_str())
@@ -150,7 +147,7 @@ impl Client {
         self.set_property(NAME_PROP_TIME, working_segment.segment[1])?;
         log::info!("Skipped segment {}", working_segment);
         if self.config.skip_notice {
-            self.osd_message(format!("Skipped segment {}", working_segment), Duration::from_secs(8))?;
+            let _ = self.osd_message(format!("Skipped segment {}", working_segment), Duration::from_secs(8));
         }
         Ok(())
     }
@@ -159,14 +156,13 @@ impl Client {
         // Working only if entering a new segment
         if self.mute_segment != Some(working_segment.clone()) {
             // If muted by the plugin do it again just for the log or if not muted do it
-            let mute: bool = self.get_property(NAME_PROP_MUTE).unwrap();
+            let mute: bool = self.get_property(NAME_PROP_MUTE)?;
             if self.mute_sponsorblock || !mute {
-                self.set_property(NAME_PROP_MUTE, true).unwrap();
+                self.set_property(NAME_PROP_MUTE, true)?;
                 self.mute_sponsorblock = true;
                 log::info!("Mutting segment {}", working_segment);
                 if self.config.skip_notice {
-                    self.osd_message(format!("Mutting segment {}", working_segment), Duration::from_secs(8))
-                        .unwrap();
+                    let _ = self.osd_message(format!("Mutting segment {}", working_segment), Duration::from_secs(8));
                 }
             } else {
                 log::info!("Muttable segment found but mute was requested by user prior segment. Ignoring");
@@ -201,7 +197,7 @@ impl Client {
             self.set_property(NAME_PROP_TIME, time_pos)?;
             log::info!("Jumping to highlight at {}", time_pos);
             if self.config.skip_notice {
-                self.osd_message(format!("Jumping to highlight at {}", time_pos), Duration::from_secs(8))?;
+                let _ = self.osd_message(format!("Jumping to highlight at {}", time_pos), Duration::from_secs(8));
             }
         }
         Ok(())
@@ -209,11 +205,13 @@ impl Client {
 
     fn segments_fetched(&self) -> Result<()> {
         if let Some(category) = self.worker.get_video_category() {
-            let message = format!(
-                "This entire video is labeled as '{}' and is too tightly integrated to be able to separate",
-                category
+            let _ = self.osd_message(
+                format!(
+                    "This entire video is labeled as '{}' and is too tightly integrated to be able to separate",
+                    category
+                ),
+                Duration::from_secs(10),
             );
-            self.osd_message(message, Duration::from_secs(10))?;
         }
         Ok(())
     }
