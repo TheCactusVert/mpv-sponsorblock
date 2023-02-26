@@ -1,6 +1,7 @@
+mod config;
 mod worker;
 
-use crate::config::Config;
+use config::Config;
 use worker::Worker;
 
 use std::ops::Deref;

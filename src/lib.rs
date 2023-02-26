@@ -1,7 +1,6 @@
 #![feature(drain_filter)]
 
 mod client;
-mod config;
 
 use client::Client;
 use mpv_client::mpv_handle;

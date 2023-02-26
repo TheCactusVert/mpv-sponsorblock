@@ -1,4 +1,4 @@
-use crate::config::Config;
+use super::Config;
 
 use std::sync::{Arc, Mutex};
 
