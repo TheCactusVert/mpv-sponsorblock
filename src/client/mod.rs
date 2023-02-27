@@ -77,7 +77,7 @@ impl Client {
     fn start_file(&mut self) -> Result<()> {
         let path: String = self.get_property(NAME_PROP_PATH)?;
         if let Some(id) = self.get_youtube_id(&path) {
-            let client_parent = self.client_name();
+            let client_parent = self.name();
 
             self.worker.start(
                 self.create_client(format!("{}-worker", client_parent))?,
@@ -92,7 +92,7 @@ impl Client {
         Ok(())
     }
 
-    pub fn time_change(&mut self, time_pos: f64) -> Result<()> {
+    fn time_change(&mut self, time_pos: f64) -> Result<()> {
         if let Some(s) = self.worker.get_skip_segment(time_pos) {
             self.skip(s) // Skip segments are priority
         } else if let Some(s) = self.worker.get_mute_segment(time_pos) {
