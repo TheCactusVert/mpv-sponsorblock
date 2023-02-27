@@ -1,5 +1,3 @@
-#![feature(drain_filter)]
-
 mod client;
 
 use client::Client;

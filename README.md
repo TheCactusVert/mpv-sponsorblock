@@ -14,12 +14,6 @@ Yes! Just follow the example [here](https://crates.io/crates/mpv-client) and you
 
 ## Build
 
-Set Rust to nightly channel:
-
-```bash
-rustup override set nightly
-```
-
 Build the plugin:
 
 ```bash

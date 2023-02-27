@@ -77,11 +77,11 @@ impl Client {
     fn start_file(&mut self) -> Result<()> {
         let path: String = self.get_property(NAME_PROP_PATH)?;
         if let Some(id) = self.get_youtube_id(&path) {
-            let client_parent = self.name();
+            let parent = self.name();
 
             self.worker.start(
-                self.create_client(format!("{}-worker", client_parent))?,
-                client_parent.to_string(),
+                self.create_client(format!("{}-worker", parent))?,
+                parent.to_string(),
                 self.config.clone(),
                 id.to_string(),
             );

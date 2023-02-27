@@ -11,33 +11,10 @@ use tokio::task::JoinHandle;
 use tokio_util::either::Either;
 use tokio_util::sync::CancellationToken;
 
-struct SortedSegments {
-    skippable: Segments,
-    mutable: Segments,
-    poi: Option<Segment>,
-    full: Option<Segment>,
-}
-
-impl SortedSegments {
-    fn from(mut segments: Segments) -> Self {
-        let skippable: Segments = segments.drain_filter(|s| s.action == Action::Skip).collect();
-        let mutable: Segments = segments.drain_filter(|s| s.action == Action::Mute).collect();
-        let poi: Option<Segment> = segments.drain_filter(|s| s.action == Action::Poi).next();
-        let full: Option<Segment> = segments.drain_filter(|s| s.action == Action::Full).next();
-
-        Self {
-            skippable,
-            mutable,
-            poi,
-            full,
-        }
-    }
-}
-
-type SharedSortedSegments = Arc<Mutex<Option<SortedSegments>>>;
+type SharedSegments = Arc<Mutex<Option<Segments>>>;
 
 pub struct Worker {
-    sorted_segments: SharedSortedSegments,
+    segments: SharedSegments,
     rt: Runtime,
     thread: Option<(CancellationToken, JoinHandle<()>)>,
 }
@@ -45,7 +22,7 @@ pub struct Worker {
 impl Default for Worker {
     fn default() -> Self {
         Self {
-            sorted_segments: SharedSortedSegments::default(),
+            segments: SharedSegments::default(),
             rt: Runtime::new().unwrap(),
             thread: None,
         }
@@ -53,14 +30,14 @@ impl Default for Worker {
 }
 
 impl Worker {
-    pub fn start(&mut self, client: Client, client_parent: String, config: Config, id: String) {
+    pub fn start(&mut self, client: Client, parent: String, config: Config, id: String) {
         let token = CancellationToken::new();
         let join = self.rt.spawn(Self::run(
             client,
-            client_parent,
+            parent,
             config,
             id,
-            self.sorted_segments.clone(),
+            self.segments.clone(),
             token.clone(),
         ));
 
@@ -73,15 +50,15 @@ impl Worker {
             self.rt.block_on(&mut thread.1).unwrap();
         }
 
-        *self.sorted_segments.lock().unwrap() = None;
+        *self.segments.lock().unwrap() = None;
     }
 
     async fn run(
         client: Client,
-        client_parent: String,
+        parent: String,
         config: Config,
         id: String,
-        sorted_segments: SharedSortedSegments,
+        segments: SharedSegments,
         token: CancellationToken,
     ) {
         let fetch = if config.privacy_api {
@@ -95,23 +72,17 @@ impl Worker {
             Either::Right(fetch(config.server_address, id, config.categories, config.action_types))
         };
 
-        let segments = select! {
+        let result = select! {
             s = fetch => s,
             _ = token.cancelled() => return,
         };
 
         // Lock only when data is received
-        *sorted_segments.lock().unwrap() = match segments {
+        *segments.lock().unwrap() = match result {
             Ok(s) => {
-                let sorted = SortedSegments::from(s);
-                log::info!("Found {} skippable segment(s)", sorted.skippable.len());
-                log::info!("Found {} muttable segment(s)", sorted.mutable.len());
-                log::info!("Highlight {}", if sorted.poi.is_some() { "found" } else { "not found" });
-                log::info!("Category {}", if sorted.full.is_some() { "found" } else { "not found" });
-                client
-                    .command(["script-message-to", client_parent.as_str(), "segments-fetched"])
-                    .unwrap();
-                Some(sorted)
+                log::info!("{} segment(s) found", s.len());
+                let _ = client.command(["script-message-to", &parent, "segments-fetched"]);
+                Some(s)
             }
             Err(e) if e.status() == Some(StatusCode::NOT_FOUND) => {
                 log::info!("No segments found");
@@ -125,36 +96,34 @@ impl Worker {
     }
 
     pub fn get_skip_segment(&self, time_pos: f64) -> Option<Segment> {
-        self.sorted_segments.lock().unwrap().as_ref().and_then(|s| {
-            s.skippable
-                .iter()
-                .find(|s| time_pos >= s.segment[0] && time_pos < (s.segment[1] - 0.1_f64)) // Fix for a stupid bug when times are too precise
+        self.segments.lock().unwrap().as_ref().and_then(|v| {
+            v.iter()
+                .find(|s| s.action == Action::Skip && time_pos >= s.segment[0] && time_pos < (s.segment[1] - 0.1_f64)) // Fix for a stupid bug when times are too precise
                 .cloned()
         })
     }
 
     pub fn get_mute_segment(&self, time_pos: f64) -> Option<Segment> {
-        self.sorted_segments.lock().unwrap().as_ref().and_then(|s| {
-            s.mutable
-                .iter()
-                .find(|s| time_pos >= s.segment[0] && time_pos < s.segment[1])
+        self.segments.lock().unwrap().as_ref().and_then(|v| {
+            v.iter()
+                .find(|s| s.action == Action::Mute && time_pos >= s.segment[0] && time_pos < s.segment[1])
                 .cloned()
         })
     }
 
     pub fn get_video_poi(&self) -> Option<f64> {
-        self.sorted_segments
+        self.segments
             .lock()
             .unwrap()
             .as_ref()
-            .and_then(|s| s.poi.as_ref().map(|s| s.segment[0]))
+            .and_then(|v| v.iter().find(|s| s.action == Action::Poi).map(|s| s.segment[0]))
     }
 
     pub fn get_video_category(&self) -> Option<Category> {
-        self.sorted_segments
+        self.segments
             .lock()
             .unwrap()
             .as_ref()
-            .and_then(|s| s.full.as_ref().map(|s| s.category))
+            .and_then(|v| v.iter().find(|s| s.action == Action::Full).map(|s| s.category))
     }
 }
