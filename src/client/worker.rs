@@ -42,15 +42,17 @@ pub struct Worker {
     thread: Option<(CancellationToken, JoinHandle<()>)>,
 }
 
-impl Worker {
-    pub fn new() -> Self {
+impl Default for Worker {
+    fn default() -> Self {
         Self {
             sorted_segments: SharedSortedSegments::default(),
             rt: Runtime::new().unwrap(),
             thread: None,
         }
     }
+}
 
+impl Worker {
     pub fn start(&mut self, client: Client, client_parent: String, config: Config, id: String) {
         let token = CancellationToken::new();
         let join = self.rt.spawn(Self::run(

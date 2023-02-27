@@ -31,7 +31,7 @@ impl Client {
         Self {
             mpv: Handle::from_ptr(handle),
             config: Config::get(),
-            worker: Worker::new(),
+            worker: Worker::default(),
             mute_segment: None,
             mute_sponsorblock: false,
         }
