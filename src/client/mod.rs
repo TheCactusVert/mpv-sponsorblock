@@ -97,10 +97,11 @@ impl Client {
         log::trace!("Received client-message event");
 
         match data.args().as_slice() {
-            ["key-binding", "poi", "u-", ..] => self.poi_requested(),
+            ["key-binding", "poi", "u-", ..] => self.poi_requested()?,
             ["segments-fetched"] => self.segments_fetched(),
-            _ => Ok(()),
-        }
+            _ => {}
+        };
+        Ok(())
     }
 
     fn end_file(&mut self) -> Result<()> {
@@ -190,17 +191,15 @@ impl Client {
         Ok(())
     }
 
-    fn segments_fetched(&mut self) -> Result<()> {
+    fn segments_fetched(&mut self) {
         if let Some(category) = self.worker.get_video_category() {
             let _ = self.osd_message(
                 format!(
-                    "This entire video is labeled as '{}' and is too tightly integrated to be able to separate",
-                    category
+                    "This entire video is labeled as '{category}' and is too tightly integrated to be able to separate"
                 ),
                 Duration::from_secs(10),
             );
         }
-        Ok(())
     }
 }
 
