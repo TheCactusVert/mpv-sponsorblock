@@ -61,15 +61,14 @@ impl Worker {
         segments: SharedSegments,
         token: CancellationToken,
     ) {
+        log::trace!("Fetching segments for {id}");
+
         let fetch = if config.privacy_api {
-            Either::Left(fetch_with_privacy(
-                config.server_address,
-                id,
-                config.categories,
-                config.action_types,
-            ))
+            let fun = fetch_with_privacy(config.server_address, id, config.categories, config.action_types);
+            Either::Left(fun)
         } else {
-            Either::Right(fetch(config.server_address, id, config.categories, config.action_types))
+            let fun = fetch(config.server_address, id, config.categories, config.action_types);
+            Either::Right(fun)
         };
 
         let result = select! {
@@ -96,34 +95,42 @@ impl Worker {
     }
 
     pub fn get_skip_segment(&self, time_pos: f64) -> Option<Segment> {
-        self.segments.lock().unwrap().as_ref().and_then(|v| {
-            v.iter()
-                .find(|s| s.action == Action::Skip && time_pos >= s.segment[0] && time_pos < (s.segment[1] - 0.1_f64)) // Fix for a stupid bug when times are too precise
-                .cloned()
-        })
+        self.segments
+            .lock()
+            .unwrap()
+            .as_ref()?
+            .iter()
+            .find(|s| s.action == Action::Skip && time_pos >= s.segment[0] && time_pos < (s.segment[1] - 0.1_f64)) // Fix for a stupid bug when times are too precise
+            .cloned()
     }
 
     pub fn get_mute_segment(&self, time_pos: f64) -> Option<Segment> {
-        self.segments.lock().unwrap().as_ref().and_then(|v| {
-            v.iter()
-                .find(|s| s.action == Action::Mute && time_pos >= s.segment[0] && time_pos < s.segment[1])
-                .cloned()
-        })
+        self.segments
+            .lock()
+            .unwrap()
+            .as_ref()?
+            .iter()
+            .find(|s| s.action == Action::Mute && time_pos >= s.segment[0] && time_pos < s.segment[1])
+            .cloned()
     }
 
     pub fn get_video_poi(&self) -> Option<f64> {
         self.segments
             .lock()
             .unwrap()
-            .as_ref()
-            .and_then(|v| v.iter().find(|s| s.action == Action::Poi).map(|s| s.segment[0]))
+            .as_ref()?
+            .iter()
+            .find(|s| s.action == Action::Poi)
+            .map(|s| s.segment[0])
     }
 
     pub fn get_video_category(&self) -> Option<Category> {
         self.segments
             .lock()
             .unwrap()
-            .as_ref()
-            .and_then(|v| v.iter().find(|s| s.action == Action::Full).map(|s| s.category))
+            .as_ref()?
+            .iter()
+            .find(|s| s.action == Action::Full)
+            .map(|s| s.category)
     }
 }
