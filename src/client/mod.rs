@@ -7,7 +7,7 @@ use worker::Worker;
 use std::ops::Deref;
 use std::time::Duration;
 
-use mpv_client::{mpv_handle, Event, Format, Handle, Result};
+use mpv_client::{mpv_handle, ClientMessage, Event, Format, Handle, Property, Result};
 use regex::Regex;
 use sponsorblock_client::Segment;
 
@@ -41,40 +41,20 @@ impl Client {
         loop {
             // Wait for MPV events indefinitely
             match self.wait_event(-1.) {
-                Event::StartFile(_data) => {
-                    log::trace!("Received start-file event");
-                    self.start_file()?;
-                }
-                Event::PropertyChange(REPL_PROP_TIME, data) => {
-                    log::trace!("Received {} on reply {}", data.name(), REPL_PROP_TIME);
-                    if let Some(time) = data.data() {
-                        self.time_change(time)?;
-                    }
-                }
-                Event::PropertyChange(REPL_PROP_MUTE, data) => {
-                    log::trace!("Received {} on reply {}", data.name(), REPL_PROP_MUTE);
-                    if let Some(mute) = data.data() {
-                        self.mute_change(mute)?;
-                    }
-                }
-                Event::ClientMessage(data) => {
-                    log::trace!("Received client-message event");
-                    self.client_message(data.args().as_slice())?;
-                }
-                Event::EndFile => {
-                    log::trace!("Received end-file event");
-                    self.end_file()?;
-                }
-                Event::Shutdown => {
-                    log::trace!("Received shutdown event");
-                    return Ok(());
-                }
+                Event::StartFile(_data) => self.start_file()?,
+                Event::PropertyChange(REPL_PROP_TIME, data) => self.time_change(data)?,
+                Event::PropertyChange(REPL_PROP_MUTE, data) => self.mute_change(data),
+                Event::ClientMessage(data) => self.client_message(data)?,
+                Event::EndFile => self.end_file()?,
+                Event::Shutdown => return Ok(()),
                 _ => {}
             };
         }
     }
 
     fn start_file(&mut self) -> Result<()> {
+        log::trace!("Received start-file event");
+
         let path: String = self.get_property(NAME_PROP_PATH)?;
         if let Some(id) = self.get_youtube_id(&path) {
             let parent = self.name().into();
@@ -89,26 +69,34 @@ impl Client {
         Ok(())
     }
 
-    fn time_change(&mut self, time_pos: f64) -> Result<()> {
-        if let Some(s) = self.worker.get_skip_segment(time_pos) {
-            self.skip(s) // Skip segments are priority
-        } else if let Some(s) = self.worker.get_mute_segment(time_pos) {
-            self.mute(s)
+    fn time_change(&mut self, data: Property) -> Result<()> {
+        log::trace!("Received property-change event [{data}]");
+
+        if let Some(time_pos) = data.data() {
+            if let Some(s) = self.worker.get_skip_segment(time_pos) {
+                self.skip(s) // Skip segments are priority
+            } else if let Some(s) = self.worker.get_mute_segment(time_pos) {
+                self.mute(s)
+            } else {
+                self.reset()
+            }
         } else {
-            self.reset()
+            Ok(())
         }
     }
 
-    fn mute_change(&mut self, mute: bool) -> Result<()> {
-        // If muted by the plugin and request unmute then plugin doesn't own mute
-        if self.mute_sponsorblock && !mute {
+    fn mute_change(&mut self, data: Property) {
+        log::trace!("Received property-change event [{data}]");
+
+        if data.data() == Some(false) {
             self.mute_sponsorblock = false;
         };
-        Ok(())
     }
 
-    fn client_message(&self, args: &[&str]) -> Result<()> {
-        match args {
+    fn client_message(&mut self, data: ClientMessage) -> Result<()> {
+        log::trace!("Received client-message event");
+
+        match data.args().as_slice() {
             ["key-binding", "poi", "u-", ..] => self.poi_requested(),
             ["segments-fetched"] => self.segments_fetched(),
             _ => Ok(()),
@@ -116,6 +104,8 @@ impl Client {
     }
 
     fn end_file(&mut self) -> Result<()> {
+        log::trace!("Received end-file event");
+
         self.worker.stop();
         self.unobserve_property(REPL_PROP_TIME)?;
         self.unobserve_property(REPL_PROP_MUTE)?;
@@ -189,7 +179,7 @@ impl Client {
         Ok(())
     }
 
-    fn poi_requested(&self) -> Result<()> {
+    fn poi_requested(&mut self) -> Result<()> {
         if let Some(time_pos) = self.worker.get_video_poi() {
             self.set_property(NAME_PROP_TIME, time_pos)?;
             log::info!("Jumping to highlight at {}", time_pos);
@@ -200,7 +190,7 @@ impl Client {
         Ok(())
     }
 
-    fn segments_fetched(&self) -> Result<()> {
+    fn segments_fetched(&mut self) -> Result<()> {
         if let Some(category) = self.worker.get_video_category() {
             let _ = self.osd_message(
                 format!(

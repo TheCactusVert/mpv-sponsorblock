@@ -478,7 +478,7 @@ dependencies = [
 [[package]]
 name = "mpv-client"
 version = "0.5.0"
-source = "git+https://github.com/TheCactusVert/mpv-client.git#31f65e3b84c4ed53beb9291b2afdfe18030cc790"
+source = "git+https://github.com/TheCactusVert/mpv-client.git#09a78f17d555b471ee0884af721b51d2c579e76d"
 
 [[package]]
 name = "mpv-sponsorblock"
