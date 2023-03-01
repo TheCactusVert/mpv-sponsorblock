@@ -31,6 +31,8 @@ impl Default for Worker {
 
 impl Worker {
     pub fn start(&mut self, client: Client, parent: String, config: Config, id: String) {
+        assert!(self.thread.is_none());
+
         let token = CancellationToken::new();
         let join = self.rt.spawn(Self::run(
             client,
