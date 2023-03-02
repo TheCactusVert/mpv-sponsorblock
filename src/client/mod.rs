@@ -8,7 +8,6 @@ use std::ops::Deref;
 use std::time::Duration;
 
 use mpv_client::{mpv_handle, ClientMessage, Event, Format, Handle, Property, Result};
-use regex::Regex;
 use sponsorblock_client::Segment;
 
 static NAME_PROP_PATH: &str = "path";
@@ -50,6 +49,11 @@ impl Client {
                 _ => {}
             };
         }
+    }
+
+    fn get_youtube_id<'b>(&self, path: &'b str) -> Option<&'b str> {
+        let capture = self.config.youtube_regex.captures(&path.as_ref())?;
+        capture.get(1).map(|m| m.as_str())
     }
 
     fn start_file(&mut self) -> Result<()> {
@@ -112,23 +116,6 @@ impl Client {
         self.unobserve_property(REPL_PROP_MUTE)?;
         self.reset()?;
         Ok(())
-    }
-
-    fn get_youtube_id<'b>(&self, path: &'b str) -> Option<&'b str> {
-        let mut domains_patterns = vec![r"(?:www\.|m\.|)youtube\.com", r"(?:www\.|)youtu\.be"];
-        self.config
-            .domains_escaped
-            .iter()
-            .for_each(|r| domains_patterns.push(r));
-
-        let pattern = format!(
-            r"https?://(?:{}).*(?:/|%3D|v=|vi=)([0-9A-z-_]{{11}})(?:[%#?&]|$)",
-            domains_patterns.join("|")
-        );
-
-        let regex = Regex::new(&pattern).ok()?;
-        let capture = regex.captures(&path.as_ref())?;
-        capture.get(1).map(|m| m.as_str())
     }
 
     fn skip(&self, working_segment: Segment) -> Result<()> {
