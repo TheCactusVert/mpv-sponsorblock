@@ -26,8 +26,8 @@ serde_derive = "1.0.152"
 simple_logger = { version = "4.0.0", default-features = false, features = ["colors"] }
 sponsorblock-client = { git = "https://github.com/TheCactusVert/sponsorblock-client.git" }
 #sponsorblock-client = { path = "../sponsorblock-client" }
-tokio = { version = "1.25.0", features = ["rt-multi-thread", "macros"] }
-tokio-util = "0.7.6"
+tokio = { version = "1.26.0", features = ["rt-multi-thread", "macros"] }
+tokio-util = "0.7.7"
 toml = "0.7.2"
 url = { version = "2.3.1", features = ["serde"] }
 
