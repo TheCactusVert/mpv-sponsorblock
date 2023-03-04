@@ -129,7 +129,7 @@ impl Client {
 
     fn skip(&self, working_segment: Segment) -> Result<()> {
         self.set_property(NAME_PROP_TIME, working_segment.segment[1])?;
-        osd_info!(self, Duration::from_secs(8), "Skipped segment {}", working_segment);
+        osd_info!(self, Duration::from_secs(8), "Skipped segment {working_segment}");
         Ok(())
     }
 
@@ -141,7 +141,7 @@ impl Client {
             if self.mute_sponsorblock || !mute {
                 self.set_property(NAME_PROP_MUTE, true)?;
                 self.mute_sponsorblock = true;
-                osd_info!(self, Duration::from_secs(8), "Mutting segment {}", working_segment);
+                osd_info!(self, Duration::from_secs(8), "Mutting segment {working_segment}");
             } else {
                 log::info!("Muttable segment found but mute was requested by user prior segment. Ignoring");
             }
@@ -173,7 +173,7 @@ impl Client {
     fn poi_requested(&mut self) -> Result<()> {
         if let Some(time_pos) = self.worker.get_video_poi() {
             self.set_property(NAME_PROP_TIME, time_pos)?;
-            osd_info!(self, Duration::from_secs(8), "Jumping to highlight at {}", time_pos);
+            osd_info!(self, Duration::from_secs(8), "Jumping to highlight at {time_pos}");
         }
         Ok(())
     }
