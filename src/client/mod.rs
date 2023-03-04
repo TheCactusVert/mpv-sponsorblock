@@ -7,7 +7,7 @@ use worker::Worker;
 use std::ops::Deref;
 use std::time::Duration;
 
-use mpv_client::{mpv_handle, ClientMessage, Event, Format, Handle, Property, Result};
+use mpv_client::{mpv_handle, osd, ClientMessage, Event, Format, Handle, Property, Result};
 use sponsorblock_client::Segment;
 
 static NAME_PROP_PATH: &str = "path";
@@ -16,6 +16,15 @@ static NAME_PROP_MUTE: &str = "mute";
 
 const REPL_PROP_TIME: u64 = 1;
 const REPL_PROP_MUTE: u64 = 2;
+
+macro_rules! osd_info {
+    ($client:expr, $duration:expr, $($arg:tt)*) => {
+        log::info!($($arg)*);
+        if $client.config.skip_notice {
+            let _ = osd!($client, $duration, $($arg)*);
+        }
+    };
+}
 
 pub struct Client {
     mpv: Handle,
@@ -120,10 +129,7 @@ impl Client {
 
     fn skip(&self, working_segment: Segment) -> Result<()> {
         self.set_property(NAME_PROP_TIME, working_segment.segment[1])?;
-        log::info!("Skipped segment {}", working_segment);
-        if self.config.skip_notice {
-            let _ = self.osd_message(format!("Skipped segment {}", working_segment), Duration::from_secs(8));
-        }
+        osd_info!(self, Duration::from_secs(8), "Skipped segment {}", working_segment);
         Ok(())
     }
 
@@ -135,10 +141,7 @@ impl Client {
             if self.mute_sponsorblock || !mute {
                 self.set_property(NAME_PROP_MUTE, true)?;
                 self.mute_sponsorblock = true;
-                log::info!("Mutting segment {}", working_segment);
-                if self.config.skip_notice {
-                    let _ = self.osd_message(format!("Mutting segment {}", working_segment), Duration::from_secs(8));
-                }
+                osd_info!(self, Duration::from_secs(8), "Mutting segment {}", working_segment);
             } else {
                 log::info!("Muttable segment found but mute was requested by user prior segment. Ignoring");
             }
@@ -170,21 +173,17 @@ impl Client {
     fn poi_requested(&mut self) -> Result<()> {
         if let Some(time_pos) = self.worker.get_video_poi() {
             self.set_property(NAME_PROP_TIME, time_pos)?;
-            log::info!("Jumping to highlight at {}", time_pos);
-            if self.config.skip_notice {
-                let _ = self.osd_message(format!("Jumping to highlight at {}", time_pos), Duration::from_secs(8));
-            }
+            osd_info!(self, Duration::from_secs(8), "Jumping to highlight at {}", time_pos);
         }
         Ok(())
     }
 
     fn segments_fetched(&mut self) {
         if let Some(category) = self.worker.get_video_category() {
-            let _ = self.osd_message(
-                format!(
-                    "This entire video is labeled as '{category}' and is too tightly integrated to be able to separate"
-                ),
+            let _ = osd!(
+                self,
                 Duration::from_secs(10),
+                "This entire video is labeled as '{category}' and is too tightly integrated to be able to separate"
             );
         }
     }
