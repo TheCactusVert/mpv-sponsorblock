@@ -4,8 +4,10 @@ mod worker;
 use config::Config;
 use worker::Worker;
 
-use std::ops::Deref;
-use std::time::Duration;
+use std::{
+    ops::{Deref, DerefMut},
+    time::Duration,
+};
 
 use mpv_client::{mpv_handle, osd, ClientMessage, Event, Format, Handle, Property, Result};
 use sponsorblock_client::Segment;
@@ -27,7 +29,7 @@ macro_rules! osd_info {
 }
 
 pub struct Client {
-    mpv: Handle,
+    handle: *mut mpv_handle,
     config: Config,
     worker: Worker,
     mute_segment: Option<Segment>,
@@ -37,7 +39,7 @@ pub struct Client {
 impl Client {
     pub fn from_ptr(handle: *mut mpv_handle) -> Self {
         Self {
-            mpv: Handle::from_ptr(handle),
+            handle,
             config: Config::get(),
             worker: Worker::default(),
             mute_segment: None,
@@ -127,7 +129,7 @@ impl Client {
         Ok(())
     }
 
-    fn skip(&self, working_segment: Segment) -> Result<()> {
+    fn skip(&mut self, working_segment: Segment) -> Result<()> {
         self.set_property(NAME_PROP_TIME, working_segment.segment[1])?;
         osd_info!(self, Duration::from_secs(8), "Skipped segment {working_segment}");
         Ok(())
@@ -193,7 +195,14 @@ impl Deref for Client {
     type Target = Handle;
 
     #[inline]
-    fn deref(&self) -> &Handle {
-        &self.mpv
+    fn deref(&self) -> &Self::Target {
+        Handle::from_ptr(self.handle)
+    }
+}
+
+impl DerefMut for Client {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        Handle::from_ptr(self.handle)
     }
 }

@@ -56,7 +56,7 @@ impl Worker {
     }
 
     async fn run(
-        client: Client,
+        mut client: Client,
         parent: String,
         config: Config,
         id: String,
