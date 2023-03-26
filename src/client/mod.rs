@@ -55,7 +55,7 @@ impl Client {
                 Event::PropertyChange(REPL_PROP_TIME, data) => self.time_change(data)?,
                 Event::PropertyChange(REPL_PROP_MUTE, data) => self.mute_change(data),
                 Event::ClientMessage(data) => self.client_message(data)?,
-                Event::EndFile => self.end_file()?,
+                Event::EndFile(_data) => self.end_file()?,
                 Event::Shutdown => return Ok(()),
                 _ => {}
             };
