@@ -63,7 +63,7 @@ impl Client {
     }
 
     fn get_youtube_id<'b>(&self, path: &'b str) -> Option<&'b str> {
-        let capture = self.config.youtube_regex.captures(&path.as_ref())?;
+        let capture = self.config.youtube_regex.captures(path.as_ref())?;
         capture.get(1).map(|m| m.as_str())
     }
 
