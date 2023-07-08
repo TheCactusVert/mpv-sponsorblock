@@ -51,6 +51,7 @@ impl Client {
         loop {
             // Wait for MPV events indefinitely
             match self.wait_event(-1.) {
+                Event::StartFile(_data) => self.start_file()?,
                 Event::FileLoaded => self.loaded_file()?,
                 Event::PropertyChange(REPL_PROP_TIME, data) => self.time_change(data)?,
                 Event::PropertyChange(REPL_PROP_MUTE, data) => self.mute_change(data),
@@ -67,7 +68,7 @@ impl Client {
         capture.get(1).map(|m| m.as_str())
     }
 
-    fn loaded_file(&mut self) -> Result<()> {
+    fn start_file(&mut self) -> Result<()> {
         log::trace!("Received start-file event");
 
         let path: String = self.get_property(NAME_PROP_PATH)?;
@@ -77,9 +78,17 @@ impl Client {
             let client = self.create_client(child)?;
 
             self.worker.start(client, parent, self.config.clone(), id.into());
-            self.observe_property(REPL_PROP_TIME, NAME_PROP_TIME, f64::MPV_FORMAT)?;
-            self.observe_property(REPL_PROP_MUTE, NAME_PROP_MUTE, bool::MPV_FORMAT)?;
         }
+
+        Ok(())
+    }
+
+    fn loaded_file(&mut self) -> Result<()> {
+        log::trace!("Received file-loaded event");
+
+        // TODO Maybe should only observe when necessary ?
+        self.observe_property(REPL_PROP_TIME, NAME_PROP_TIME, f64::MPV_FORMAT)?;
+        self.observe_property(REPL_PROP_MUTE, NAME_PROP_MUTE, bool::MPV_FORMAT)?;
 
         Ok(())
     }
@@ -87,7 +96,9 @@ impl Client {
     fn time_change(&mut self, data: Property) -> Result<()> {
         log::trace!("Received property-change event [{data}]");
 
-        if let Some(time_pos) = data.data() {
+        // Skipping before a certain time can lead to undefined behaviour
+        // https://github.com/TheCactusVert/mpv-sponsorblock/issues/5
+        if let Some(time_pos) = data.data().filter(|t| t >= &0.2_f64) {
             if let Some(s) = self.worker.get_skip_segment(time_pos) {
                 self.skip(s) // Skip segments are priority
             } else if let Some(s) = self.worker.get_mute_segment(time_pos) {
