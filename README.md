@@ -22,6 +22,8 @@ cargo build --release --locked
 
 ## Installation
 
+Installation is not available for Windows : https://mpv.io/manual/stable/#c-plugins
+
 <details>
 <summary>MPV</summary>
 
