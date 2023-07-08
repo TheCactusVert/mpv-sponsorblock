@@ -51,7 +51,7 @@ impl Client {
         loop {
             // Wait for MPV events indefinitely
             match self.wait_event(-1.) {
-                Event::StartFile(_data) => self.start_file()?,
+                Event::FileLoaded => self.loaded_file()?,
                 Event::PropertyChange(REPL_PROP_TIME, data) => self.time_change(data)?,
                 Event::PropertyChange(REPL_PROP_MUTE, data) => self.mute_change(data),
                 Event::ClientMessage(data) => self.client_message(data)?,
@@ -67,7 +67,7 @@ impl Client {
         capture.get(1).map(|m| m.as_str())
     }
 
-    fn start_file(&mut self) -> Result<()> {
+    fn loaded_file(&mut self) -> Result<()> {
         log::trace!("Received start-file event");
 
         let path: String = self.get_property(NAME_PROP_PATH)?;
