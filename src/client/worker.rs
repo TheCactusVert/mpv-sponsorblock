@@ -96,43 +96,29 @@ impl Worker {
         }
     }
 
+    fn segment_where<P>(&self, predicate: P) -> Option<Segment>
+    where
+        P: FnMut(&&Segment) -> bool,
+    {
+        // cloning is cheap since it is a [f64; 2]
+        self.segments.lock().unwrap().as_ref()?.iter().find(predicate).cloned()
+    }
+
     pub fn get_skip_segment(&self, time_pos: f64) -> Option<Segment> {
-        self.segments
-            .lock()
-            .unwrap()
-            .as_ref()?
-            .iter()
-            .find(|s| s.action == Action::Skip && time_pos >= s.segment[0] && time_pos < (s.segment[1] - 0.1_f64)) // Fix for a stupid bug when times are too precise
-            .cloned()
+        self.segment_where(|s| {
+            s.action == Action::Skip && time_pos >= s.segment[0] && time_pos < (s.segment[1] - 0.1_f64)
+        }) // Fix for a stupid bug when times are too precise
     }
 
     pub fn get_mute_segment(&self, time_pos: f64) -> Option<Segment> {
-        self.segments
-            .lock()
-            .unwrap()
-            .as_ref()?
-            .iter()
-            .find(|s| s.action == Action::Mute && time_pos >= s.segment[0] && time_pos < s.segment[1])
-            .cloned()
+        self.segment_where(|s| s.action == Action::Mute && time_pos >= s.segment[0] && time_pos < s.segment[1])
     }
 
     pub fn get_video_poi(&self) -> Option<f64> {
-        self.segments
-            .lock()
-            .unwrap()
-            .as_ref()?
-            .iter()
-            .find(|s| s.action == Action::Poi)
-            .map(|s| s.segment[0])
+        self.segment_where(|s| s.action == Action::Poi).map(|s| s.segment[0])
     }
 
     pub fn get_video_category(&self) -> Option<Category> {
-        self.segments
-            .lock()
-            .unwrap()
-            .as_ref()?
-            .iter()
-            .find(|s| s.action == Action::Full)
-            .map(|s| s.category)
+        self.segment_where(|s| s.action == Action::Full).map(|s| s.category)
     }
 }
