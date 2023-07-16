@@ -98,7 +98,7 @@ impl Client {
 
         // Skipping before a certain time can lead to undefined behaviour
         // https://github.com/TheCactusVert/mpv-sponsorblock/issues/5
-        if let Some(time_pos) = data.data().filter(|t| t >= &0.2_f64) {
+        if let Some(time_pos) = data.data().filter(|t| t >= &0.5_f64) {
             if let Some(s) = self.worker.get_skip_segment(time_pos) {
                 self.skip(s) // Skip segments are priority
             } else if let Some(s) = self.worker.get_mute_segment(time_pos) {
