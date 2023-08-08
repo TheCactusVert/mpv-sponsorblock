@@ -104,7 +104,7 @@ impl Client {
 
                 'event: loop {
                     // Handle worker event
-                    let path = match &event {
+                    let path = match event {
                         WorkerEvent::Path(path) => path,
                         WorkerEvent::Cancel => return,
                     };
