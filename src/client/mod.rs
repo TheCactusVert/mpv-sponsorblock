@@ -61,6 +61,23 @@ impl Client {
         capture.get(1).map(|m| m.as_str())
     }
 
+    fn into_segments(s: reqwest::Result<Segments>) -> Option<Segments> {
+        match s {
+            Ok(s) => {
+                log::info!("{} segment(s) found", s.len());
+                Some(s)
+            }
+            Err(e) if e.status() == Some(StatusCode::NOT_FOUND) => {
+                log::info!("No segments found");
+                None
+            }
+            Err(e) => {
+                log::error!("Failed to get segments: {}", e);
+                None
+            }
+        }
+    }
+
     pub fn exec(&mut self) -> Result<()> {
         let config = self.config.clone();
         let (tx, rx) = async_channel::unbounded();
@@ -110,21 +127,8 @@ impl Client {
 
                     select! {
                         s = fetch => {
-                            *segments.lock().unwrap() = match s {
-                                Ok(s) => {
-                                    log::info!("{} segment(s) found", s.len());
-                                    let _ = client.command(["script-message-to", &parent, "segments-fetched"]);
-                                    Some(s)
-                                }
-                                Err(e) if e.status() == Some(StatusCode::NOT_FOUND) => {
-                                    log::info!("No segments found");
-                                    None
-                                }
-                                Err(e) => {
-                                    log::error!("Failed to get segments: {}", e);
-                                    None
-                                }
-                            };
+                            *segments.lock().unwrap() = Self::into_segments(s);
+                            let _ = client.command(["script-message-to", &parent, "segments-fetched"]);
                             continue 'wait;
                         },
                         e = rx.recv() => {
