@@ -1,16 +1,20 @@
 mod config;
-mod worker;
 
 use config::Config;
-use worker::Worker;
 
-use std::{
-    ops::{Deref, DerefMut},
-    time::Duration,
-};
+use std::ops::{Deref, DerefMut};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
-use mpv_client::{mpv_handle, osd, ClientMessage, Event, Format, Handle, Property, Result};
-use sponsorblock_client::Segment;
+use async_channel::Sender;
+use mpv_client::{mpv_handle, osd, Client as MpvClient, ClientMessage, Event, Format, Handle, Property, Result};
+use reqwest::StatusCode;
+use sponsorblock_client::*;
+use tokio::runtime::Runtime;
+use tokio::select;
+use tokio_util::either::Either;
+
+type SharedSegments = Arc<Mutex<Option<Segments>>>;
 
 static NAME_PROP_PATH: &str = "path";
 static NAME_PROP_TIME: &str = "time-pos";
@@ -28,10 +32,15 @@ macro_rules! osd_info {
     };
 }
 
+enum WorkerEvent {
+    Path(String),
+    Exit,
+}
+
 pub struct Client {
     handle: *mut mpv_handle,
     config: Config,
-    worker: Worker,
+    segments: SharedSegments,
     mute_segment: Option<Segment>,
     mute_sponsorblock: bool,
 }
@@ -41,67 +50,133 @@ impl Client {
         Self {
             handle,
             config: Config::get(),
-            worker: Worker::default(),
+            segments: SharedSegments::default(),
             mute_segment: None,
             mute_sponsorblock: false,
         }
     }
 
+    fn get_youtube_id<'b>(config: &Config, path: &'b str) -> Option<&'b str> {
+        let capture = config.youtube_regex.captures(path.as_ref())?;
+        capture.get(1).map(|m| m.as_str())
+    }
+
     pub fn exec(&mut self) -> Result<()> {
+        let config = self.config.clone();
+        let (tx, rx) = async_channel::unbounded();
+
+        let segments = self.segments.clone();
+
+        let parent: String = self.name().into();
+        let child = format!("{}-worker", parent);
+        let mut client: MpvClient = self.create_client(child)?;
+
+        let rt = Runtime::new().unwrap();
+
+        let mut handle = rt.spawn(async move {
+            'wait: loop {
+                let mut event: WorkerEvent = rx.recv().await.unwrap();
+
+                'event: loop {
+                    let path = match &event {
+                        WorkerEvent::Path(path) => path,
+                        WorkerEvent::Exit => return,
+                    };
+
+                    let id = match Self::get_youtube_id(&config, &path) {
+                        Some(id) => id,
+                        None => continue,
+                    };
+
+                    log::trace!("Fetching segments for {id}");
+
+                    let fetch = if config.privacy_api {
+                        let fun = fetch_with_privacy(
+                            config.server_address.clone(),
+                            id.into(),
+                            config.categories.clone(),
+                            config.action_types.clone(),
+                        );
+                        Either::Left(fun)
+                    } else {
+                        let fun = fetch(
+                            config.server_address.clone(),
+                            id.into(),
+                            config.categories.clone(),
+                            config.action_types.clone(),
+                        );
+                        Either::Right(fun)
+                    };
+
+                    select! {
+                        s = fetch => {
+                            *segments.lock().unwrap() = match s {
+                                Ok(s) => {
+                                    log::info!("{} segment(s) found", s.len());
+                                    let _ = client.command(["script-message-to", &parent, "segments-fetched"]);
+                                    Some(s)
+                                }
+                                Err(e) if e.status() == Some(StatusCode::NOT_FOUND) => {
+                                    log::info!("No segments found");
+                                    None
+                                }
+                                Err(e) => {
+                                    log::error!("Failed to get segments: {}", e);
+                                    None
+                                }
+                            };
+                            continue 'wait;
+                        },
+                        e = rx.recv() => {
+                            event = e.unwrap();
+                            continue 'event;
+                        },
+                    };
+                }
+            }
+        });
+
         loop {
             // Wait for MPV events indefinitely
             match self.wait_event(-1.) {
-                Event::StartFile(_data) => self.start_file()?,
+                Event::StartFile(_data) => self.start_file(&tx)?,
                 Event::FileLoaded => self.loaded_file()?,
                 Event::PropertyChange(REPL_PROP_TIME, data) => self.time_change(data)?,
                 Event::PropertyChange(REPL_PROP_MUTE, data) => self.mute_change(data),
                 Event::ClientMessage(data) => self.client_message(data)?,
                 Event::EndFile(_data) => self.end_file()?,
-                Event::Shutdown => return Ok(()),
+                Event::Shutdown => break,
                 _ => {}
             };
         }
+
+        tx.send_blocking(WorkerEvent::Exit);
+        rt.block_on(&mut handle).unwrap();
+
+        Ok(())
     }
 
-    fn get_youtube_id<'b>(&self, path: &'b str) -> Option<&'b str> {
-        let capture = self.config.youtube_regex.captures(path.as_ref())?;
-        capture.get(1).map(|m| m.as_str())
-    }
-
-    fn start_file(&mut self) -> Result<()> {
+    fn start_file(&mut self, tx: &Sender<WorkerEvent>) -> Result<()> {
         log::trace!("Received start-file event");
-
-        let path: String = self.get_property(NAME_PROP_PATH)?;
-        if let Some(id) = self.get_youtube_id(&path) {
-            let parent = self.name().into();
-            let child = format!("{}-worker", parent);
-            let client = self.create_client(child)?;
-
-            self.worker.start(client, parent, self.config.clone(), id.into());
-        }
-
+        tx.send_blocking(WorkerEvent::Path(self.get_property(NAME_PROP_PATH)?));
         Ok(())
     }
 
     fn loaded_file(&mut self) -> Result<()> {
         log::trace!("Received file-loaded event");
-
-        // TODO Maybe should only observe when necessary ?
         self.observe_property(REPL_PROP_TIME, NAME_PROP_TIME, f64::MPV_FORMAT)?;
         self.observe_property(REPL_PROP_MUTE, NAME_PROP_MUTE, bool::MPV_FORMAT)?;
-
         Ok(())
     }
 
     fn time_change(&mut self, data: Property) -> Result<()> {
         log::trace!("Received property-change event [{data}]");
-
         // Skipping before a certain time can lead to undefined behaviour
         // https://github.com/TheCactusVert/mpv-sponsorblock/issues/5
         if let Some(time_pos) = data.data().filter(|t| t >= &0.5_f64) {
-            if let Some(s) = self.worker.get_skip_segment(time_pos) {
+            if let Some(s) = self.get_skip_segment(time_pos) {
                 self.skip(s) // Skip segments are priority
-            } else if let Some(s) = self.worker.get_mute_segment(time_pos) {
+            } else if let Some(s) = self.get_mute_segment(time_pos) {
                 self.mute(s)
             } else {
                 self.reset()
@@ -113,7 +188,6 @@ impl Client {
 
     fn mute_change(&mut self, data: Property) {
         log::trace!("Received property-change event [{data}]");
-
         if data.data() == Some(false) {
             self.mute_sponsorblock = false;
         };
@@ -121,7 +195,6 @@ impl Client {
 
     fn client_message(&mut self, data: ClientMessage) -> Result<()> {
         log::trace!("Received client-message event");
-
         match data.args().as_slice() {
             ["key-binding", "poi", "u-", ..] => self.poi_requested()?,
             ["segments-fetched"] => self.segments_fetched(),
@@ -132,8 +205,6 @@ impl Client {
 
     fn end_file(&mut self) -> Result<()> {
         log::trace!("Received end-file event");
-
-        self.worker.stop();
         self.unobserve_property(REPL_PROP_TIME)?;
         self.unobserve_property(REPL_PROP_MUTE)?;
         self.reset()?;
@@ -184,7 +255,7 @@ impl Client {
     }
 
     fn poi_requested(&mut self) -> Result<()> {
-        if let Some(time_pos) = self.worker.get_video_poi() {
+        if let Some(time_pos) = self.get_video_poi() {
             self.set_property(NAME_PROP_TIME, time_pos)?;
             osd_info!(self, Duration::from_secs(8), "Jumping to highlight at {time_pos}");
         }
@@ -192,13 +263,39 @@ impl Client {
     }
 
     fn segments_fetched(&mut self) {
-        if let Some(category) = self.worker.get_video_category() {
+        if let Some(category) = self.get_video_category() {
             let _ = osd!(
                 self,
                 Duration::from_secs(10),
                 "This entire video is labeled as '{category}' and is too tightly integrated to be able to separate"
             );
         }
+    }
+
+    fn segment_where<P>(&self, predicate: P) -> Option<Segment>
+    where
+        P: FnMut(&&Segment) -> bool,
+    {
+        // cloning is cheap since it is a [f64; 2]
+        self.segments.lock().unwrap().as_ref()?.iter().find(predicate).cloned()
+    }
+
+    pub fn get_skip_segment(&self, time_pos: f64) -> Option<Segment> {
+        self.segment_where(|s| {
+            s.action == Action::Skip && time_pos >= s.segment[0] && time_pos < (s.segment[1] - 0.1_f64)
+        }) // Fix for a stupid bug when times are too precise
+    }
+
+    pub fn get_mute_segment(&self, time_pos: f64) -> Option<Segment> {
+        self.segment_where(|s| s.action == Action::Mute && time_pos >= s.segment[0] && time_pos < s.segment[1])
+    }
+
+    pub fn get_video_poi(&self) -> Option<f64> {
+        self.segment_where(|s| s.action == Action::Poi).map(|s| s.segment[0])
+    }
+
+    pub fn get_video_category(&self) -> Option<Category> {
+        self.segment_where(|s| s.action == Action::Full).map(|s| s.category)
     }
 }
 
