@@ -8,11 +8,11 @@ use std::time::Duration;
 
 use async_channel::Sender;
 use mpv_client::{mpv_handle, osd, Client as MpvClient, ClientMessage, Event, Format, Handle, Property, Result};
+use regex::Regex;
 use reqwest::StatusCode;
 use sponsorblock_client::*;
 use tokio::runtime::Runtime;
 use tokio::select;
-use regex::Regex;
 
 type SharedSegments = Arc<Mutex<Option<Segments>>>;
 
@@ -91,47 +91,56 @@ impl Client {
         let rt = Runtime::new().unwrap();
 
         let mut handle = rt.spawn(async move {
+            // I don't like it meh
             let server_address = config.server_address;
             let categories = config.categories;
             let action_types = config.action_types;
             let regex = config.youtube_regex;
             let privacy_api = config.privacy_api;
-            
+                        
             'wait: loop {
+                // Wait for an event
                 let mut event: WorkerEvent = rx.recv().await.unwrap();
 
                 'event: loop {
+                    // Handle worker event
                     let path = match &event {
                         WorkerEvent::Path(path) => path,
                         WorkerEvent::Cancel => return,
                     };
 
+                    // Extract YouTube ID if it exists
                     let id = match Self::get_youtube_id(&regex, &path) {
                         Some(id) => id,
-                        None => continue 'wait,
+                        None => continue 'wait, // Wait for a new event
                     };
 
                     log::trace!("Fetching segments for {id}");
 
                     let seg = select! {
+                        // Fetch data whith extra privacy
                         s = fetch_with_privacy(server_address.clone(), id.into(), categories.clone(), action_types.clone()), if privacy_api => {
                             Self::into_segments(s)
                         },
+                        // Fecth data
                         s = fetch(server_address.clone(), id.into(), categories.clone(), action_types.clone()), if !privacy_api => {
                             Self::into_segments(s)
                         },
+                        // Event received while fetching content
                         e = rx.recv() => {
                             event = e.unwrap();
-                            continue 'event;
+                            continue 'event; // Handle event and stop all operations
                         },
                     };
 
+                    // Lock segments
                     let mut segments = segments.lock().unwrap();
                     *segments = seg;
                     if segments.is_some() {
+                        // Send message to parent
                         let _ = client.command(["script-message-to", &parent, "segments-fetched"]);
                     }
-                    continue 'wait;
+                    continue 'wait; // Wait for a new event
                 }
             }
         });
@@ -150,15 +159,16 @@ impl Client {
             };
         }
 
-        tx.send_blocking(WorkerEvent::Cancel);
+        // Cancel worker
+        tx.send_blocking(WorkerEvent::Cancel).unwrap();
         rt.block_on(&mut handle).unwrap();
-
         Ok(())
     }
 
     fn start_file(&mut self, tx: &Sender<WorkerEvent>) -> Result<()> {
         log::trace!("Received start-file event");
-        tx.send_blocking(WorkerEvent::Path(self.get_property(NAME_PROP_PATH)?));
+        tx.send_blocking(WorkerEvent::Path(self.get_property(NAME_PROP_PATH)?))
+            .unwrap();
         Ok(())
     }
 
@@ -280,21 +290,21 @@ impl Client {
         self.segments.lock().unwrap().as_ref()?.iter().find(predicate).cloned()
     }
 
-    pub fn get_skip_segment(&self, time_pos: f64) -> Option<Segment> {
+    fn get_skip_segment(&self, time_pos: f64) -> Option<Segment> {
         self.segment_where(|s| {
             s.action == Action::Skip && time_pos >= s.segment[0] && time_pos < (s.segment[1] - 0.1_f64)
         }) // Fix for a stupid bug when times are too precise
     }
 
-    pub fn get_mute_segment(&self, time_pos: f64) -> Option<Segment> {
+    fn get_mute_segment(&self, time_pos: f64) -> Option<Segment> {
         self.segment_where(|s| s.action == Action::Mute && time_pos >= s.segment[0] && time_pos < s.segment[1])
     }
 
-    pub fn get_video_poi(&self) -> Option<f64> {
+    fn get_video_poi(&self) -> Option<f64> {
         self.segment_where(|s| s.action == Action::Poi).map(|s| s.segment[0])
     }
 
-    pub fn get_video_category(&self) -> Option<Category> {
+    fn get_video_category(&self) -> Option<Category> {
         self.segment_where(|s| s.action == Action::Full).map(|s| s.category)
     }
 }
