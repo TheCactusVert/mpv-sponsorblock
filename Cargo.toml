@@ -20,10 +20,10 @@ log = "0.4.19"
 #mpv-client = "0.5.0"
 #mpv-client = { path = "../mpv-client" }
 mpv-client = { git = "https://github.com/TheCactusVert/mpv-client.git" }
-regex = "1.9.1"
+regex = "1.9.3"
 reqwest = { version = "0.11.18", default-features = false, features = ["rustls"] }
-serde = "1.0.167"
-serde_derive = "1.0.167"
+serde = "1.0.183"
+serde_derive = "1.0.183"
 sponsorblock-client = { git = "https://github.com/TheCactusVert/sponsorblock-client.git" }
 #sponsorblock-client = { path = "../sponsorblock-client" }
 tokio = { version = "1.29.1", features = ["rt-multi-thread", "macros"] }
