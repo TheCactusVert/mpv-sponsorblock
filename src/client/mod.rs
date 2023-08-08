@@ -12,7 +12,7 @@ use reqwest::StatusCode;
 use sponsorblock_client::*;
 use tokio::runtime::Runtime;
 use tokio::select;
-use tokio_util::either::Either;
+use regex::Regex;
 
 type SharedSegments = Arc<Mutex<Option<Segments>>>;
 
@@ -34,7 +34,7 @@ macro_rules! osd_info {
 
 enum WorkerEvent {
     Path(String),
-    Exit,
+    Cancel,
 }
 
 pub struct Client {
@@ -56,8 +56,8 @@ impl Client {
         }
     }
 
-    fn get_youtube_id<'b>(config: &Config, path: &'b str) -> Option<&'b str> {
-        let capture = config.youtube_regex.captures(path.as_ref())?;
+    fn get_youtube_id<'b>(r: &Regex, path: &'b str) -> Option<&'b str> {
+        let capture = r.captures(path.as_ref())?;
         capture.get(1).map(|m| m.as_str())
     }
 
@@ -91,46 +91,47 @@ impl Client {
         let rt = Runtime::new().unwrap();
 
         let mut handle = rt.spawn(async move {
+            let server_address = config.server_address;
+            let categories = config.categories;
+            let action_types = config.action_types;
+            let regex = config.youtube_regex;
+            let privacy_api = config.privacy_api;
+            
             'wait: loop {
                 let mut event: WorkerEvent = rx.recv().await.unwrap();
 
                 'event: loop {
                     let path = match &event {
                         WorkerEvent::Path(path) => path,
-                        WorkerEvent::Exit => return,
+                        WorkerEvent::Cancel => return,
                     };
 
-                    let id = match Self::get_youtube_id(&config, &path) {
+                    let id = match Self::get_youtube_id(&regex, &path) {
                         Some(id) => id,
-                        None => continue,
+                        None => continue 'wait,
                     };
 
                     log::trace!("Fetching segments for {id}");
 
-                    let server_address = config.server_address.clone();
-                    let id = id.into();
-                    let categories = config.categories.clone();
-                    let action_types = config.action_types.clone();
-
-                    let fetch = if config.privacy_api {
-                        let fun = fetch_with_privacy(server_address, id, categories, action_types);
-                        Either::Left(fun)
-                    } else {
-                        let fun = fetch(server_address, id, categories, action_types);
-                        Either::Right(fun)
-                    };
-
-                    select! {
-                        s = fetch => {
-                            *segments.lock().unwrap() = Self::into_segments(s);
-                            let _ = client.command(["script-message-to", &parent, "segments-fetched"]);
-                            continue 'wait;
+                    let seg = select! {
+                        s = fetch_with_privacy(server_address.clone(), id.into(), categories.clone(), action_types.clone()), if privacy_api => {
+                            Self::into_segments(s)
+                        },
+                        s = fetch(server_address.clone(), id.into(), categories.clone(), action_types.clone()), if !privacy_api => {
+                            Self::into_segments(s)
                         },
                         e = rx.recv() => {
                             event = e.unwrap();
                             continue 'event;
                         },
                     };
+
+                    let mut segments = segments.lock().unwrap();
+                    *segments = seg;
+                    if segments.is_some() {
+                        let _ = client.command(["script-message-to", &parent, "segments-fetched"]);
+                    }
+                    continue 'wait;
                 }
             }
         });
@@ -149,7 +150,7 @@ impl Client {
             };
         }
 
-        tx.send_blocking(WorkerEvent::Exit);
+        tx.send_blocking(WorkerEvent::Cancel);
         rt.block_on(&mut handle).unwrap();
 
         Ok(())

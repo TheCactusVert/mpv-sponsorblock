@@ -585,7 +585,6 @@ dependencies = [
  "serde_derive",
  "sponsorblock-client",
  "tokio",
- "tokio-util",
  "toml",
  "url",
 ]
