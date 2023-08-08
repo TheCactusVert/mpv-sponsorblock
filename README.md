@@ -8,10 +8,6 @@ A port of [SponsorBlock](https://github.com/ajayyy/SponsorBlock) for MPV (or Cel
 
 Yes! Just follow the example [here](https://crates.io/crates/mpv-client) and you will be ready.
 
-## Requirements
-
-- openssl
-
 ## Build
 
 Build the plugin:
