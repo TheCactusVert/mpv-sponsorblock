@@ -107,21 +107,16 @@ impl Client {
 
                     log::trace!("Fetching segments for {id}");
 
+                    let server_address = config.server_address.clone();
+                    let id = id.into();
+                    let categories = config.categories.clone();
+                    let action_types = config.action_types.clone();
+
                     let fetch = if config.privacy_api {
-                        let fun = fetch_with_privacy(
-                            config.server_address.clone(),
-                            id.into(),
-                            config.categories.clone(),
-                            config.action_types.clone(),
-                        );
+                        let fun = fetch_with_privacy(server_address, id, categories, action_types);
                         Either::Left(fun)
                     } else {
-                        let fun = fetch(
-                            config.server_address.clone(),
-                            id.into(),
-                            config.categories.clone(),
-                            config.action_types.clone(),
-                        );
+                        let fun = fetch(server_address, id, categories, action_types);
                         Either::Right(fun)
                     };
 
