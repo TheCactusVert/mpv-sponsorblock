@@ -9,7 +9,6 @@ use std::time::Duration;
 use async_channel::Sender;
 use mpv_client::{mpv_handle, osd, Client as MpvClient, ClientMessage, Event, Format, Handle, Property, Result};
 use regex::Regex;
-use reqwest::StatusCode;
 use sponsorblock_client::*;
 use tokio::runtime::Runtime;
 use tokio::select;
@@ -61,23 +60,6 @@ impl Client {
         capture.get(1).map(|m| m.as_str())
     }
 
-    fn into_segments(s: reqwest::Result<Segments>) -> Option<Segments> {
-        match s {
-            Ok(s) => {
-                log::info!("{} segment(s) found", s.len());
-                Some(s)
-            }
-            Err(e) if e.status() == Some(StatusCode::NOT_FOUND) => {
-                log::info!("No segments found");
-                None
-            }
-            Err(e) => {
-                log::error!("Failed to get segments: {}", e);
-                None
-            }
-        }
-    }
-
     pub fn exec(&mut self) -> Result<()> {
         let config = self.config.clone();
         let (tx, rx) = async_channel::unbounded();
@@ -117,7 +99,7 @@ impl Client {
                     let seg = select! {
                         // Fetch data
                         s = sponsorblock.fetch(id.into(), config.categories.clone(), config.action_types.clone()) => {
-                            Self::into_segments(s)
+                            s.ok()
                         },
                         // Event received while fetching content
                         e = rx.recv() => {

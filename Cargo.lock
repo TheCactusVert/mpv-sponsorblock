@@ -580,7 +580,6 @@ dependencies = [
  "log",
  "mpv-client",
  "regex",
- "reqwest",
  "serde",
  "serde_derive",
  "sponsorblock-client",
