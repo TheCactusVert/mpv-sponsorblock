@@ -916,7 +916,7 @@ checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 [[package]]
 name = "sponsorblock-client"
 version = "0.1.0"
-source = "git+https://github.com/TheCactusVert/sponsorblock-client.git#954f8272ca544a13f6e7ef529d6996a8cd0ddef7"
+source = "git+https://github.com/TheCactusVert/sponsorblock-client.git#14b9f757961eeb424956abe96141cd343b084760"
 dependencies = [
  "hex",
  "reqwest",

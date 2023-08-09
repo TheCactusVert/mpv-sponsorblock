@@ -91,13 +91,10 @@ impl Client {
         let rt = Runtime::new().unwrap();
 
         let mut handle = rt.spawn(async move {
-            // I don't like it meh
-            let server_address = config.server_address;
-            let categories = config.categories;
-            let action_types = config.action_types;
-            let regex = config.youtube_regex;
-            let privacy_api = config.privacy_api;
-                        
+            let mut sponsorblock = SponsorBlock::new().unwrap();
+            sponsorblock.set_server_address(config.server_address);
+            sponsorblock.set_private_api(config.privacy_api);
+
             'wait: loop {
                 // Wait for an event
                 let mut event: WorkerEvent = rx.recv().await.unwrap();
@@ -110,7 +107,7 @@ impl Client {
                     };
 
                     // Extract YouTube ID if it exists
-                    let id = match Self::get_youtube_id(&regex, &path) {
+                    let id = match Self::get_youtube_id(&config.youtube_regex, &path) {
                         Some(id) => id,
                         None => continue 'wait, // Wait for a new event
                     };
@@ -118,12 +115,8 @@ impl Client {
                     log::trace!("Fetching segments for {id}");
 
                     let seg = select! {
-                        // Fetch data whith extra privacy
-                        s = fetch_with_privacy(server_address.clone(), id.into(), categories.clone(), action_types.clone()), if privacy_api => {
-                            Self::into_segments(s)
-                        },
-                        // Fecth data
-                        s = fetch(server_address.clone(), id.into(), categories.clone(), action_types.clone()), if !privacy_api => {
+                        // Fetch data
+                        s = sponsorblock.fetch(id.into(), config.categories.clone(), config.action_types.clone()) => {
                             Self::into_segments(s)
                         },
                         // Event received while fetching content
