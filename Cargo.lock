@@ -557,7 +557,7 @@ checksum = "89f50611277706a6e6519b3c3cc2cee660315327fca87abc2f3c369a95e6bb8a"
 
 [[package]]
 name = "mpv-sponsorblock"
-version = "2.0.0-alpha.3"
+version = "2.0.0"
 dependencies = [
  "async-channel",
  "dirs",
