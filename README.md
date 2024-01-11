@@ -18,7 +18,7 @@ cargo build --release --locked
 
 ## Installation
 
-Installation is not available for Windows : https://mpv.io/manual/stable/#c-plugins
+### Linux
 
 <details>
 <summary>MPV</summary>
@@ -41,6 +41,11 @@ cp ./target/release/libmpv_sponsorblock.so ~/.config/celluloid/scripts/sponsorbl
 ```
 
 </details>
+
+### Windows
+
+Installation for Windows is available : https://mpv.io/manual/stable/#c-plugins.
+I don't use Windows. Feel free to make a pull request.
 
 ## Configuration
 
