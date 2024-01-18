@@ -238,10 +238,10 @@ impl Client {
         self.user_toggle = !self.user_toggle;
         let name = self.name();
         if self.user_toggle {
-            let _ = osd!(self, Duration::from_secs(4), "Enabling plugin {}", name);
+            let _ = osd!(self, Duration::from_secs(4), "Plugin enabled [{}]", name);
             self.enable()?;
         } else {
-            let _ = osd!(self, Duration::from_secs(4), "Disabling plugin {}", name);
+            let _ = osd!(self, Duration::from_secs(4), "Plugin disabled [{}]", name);
             self.disable()?;
         }
         Ok(())
