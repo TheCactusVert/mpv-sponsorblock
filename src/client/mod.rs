@@ -177,8 +177,9 @@ impl Client {
     fn client_message(&mut self, data: ClientMessage) -> Result<()> {
         log::trace!("Received client-message event");
         match data.args().as_slice() {
-            ["key-binding", "toggle", "u-", ..] => self.toggle_requested(),
+            ["key-binding", "info", "u-", ..] => self.info_requested(),
             ["key-binding", "poi", "u-", ..] => self.poi_requested(),
+            ["key-binding", "toggle", "u-", ..] => self.toggle_requested(),
             ["segments-fetched"] => self.segments_fetched(),
             _ => Ok(()),
         }
@@ -234,6 +235,41 @@ impl Client {
         Ok(())
     }
 
+    fn info_requested(&mut self) -> Result<()> {
+        let current_time: f64 = self.get_property(NAME_PROP_TIME)?;
+        let segments_list = self
+            .segments
+            .lock()
+            .unwrap()
+            .iter()
+            .flatten()
+            .filter(|s| (s.action == Action::Skip || s.action == Action::Mute) && s.segment[0] >= current_time)
+            .map(|s| s.to_string())
+            .take(5)
+            .collect::<Vec<String>>()
+            .join("\n");
+        let poi = self.get_video_poi();
+        let category = self.get_video_category();
+        let enabled = self.is_enabled;
+
+        let _ = osd!(
+            self,
+            Duration::from_secs(12),
+            "Next segments:\n{segments_list}\n\nHighlight: {}\n\nCategory: {}\n\nEnabled: {enabled}",
+            poi.map_or_else(|| "None".to_string(), |v| v.to_string()),
+            category.map_or_else(|| "None".to_string(), |v| v.to_string()),
+        );
+        Ok(())
+    }
+
+    fn poi_requested(&mut self) -> Result<()> {
+        if let Some(time_pos) = self.get_video_poi() {
+            self.set_property(NAME_PROP_TIME, time_pos)?;
+            osd_info!(self, Duration::from_secs(8), "Jumping to highlight at {time_pos}");
+        }
+        Ok(())
+    }
+
     fn toggle_requested(&mut self) -> Result<()> {
         self.user_toggle = !self.user_toggle;
         let name = self.name();
@@ -243,14 +279,6 @@ impl Client {
         } else {
             let _ = osd!(self, Duration::from_secs(4), "Plugin disabled [{}]", name);
             self.disable()?;
-        }
-        Ok(())
-    }
-
-    fn poi_requested(&mut self) -> Result<()> {
-        if let Some(time_pos) = self.get_video_poi() {
-            self.set_property(NAME_PROP_TIME, time_pos)?;
-            osd_info!(self, Duration::from_secs(8), "Jumping to highlight at {time_pos}");
         }
         Ok(())
     }
