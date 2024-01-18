@@ -84,6 +84,16 @@ Here is a summary :
 
 ## Keybindings
 
+All the keybinds are for exemple, you can change the shortcut.
+
+### Toggle
+
+You can toggle on and off the plugin by adding this line to `input.conf`:
+
+```
+alt+t script-binding "sponsorblock/toggle"
+```
+
 ### Highlight
 
 You can add a binding to jump to the highlight of the video by adding this line to `input.conf`:
