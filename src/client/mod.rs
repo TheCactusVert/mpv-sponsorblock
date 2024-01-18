@@ -42,6 +42,8 @@ pub struct Client {
     segments: SharedSegments,
     mute_segment: Option<Segment>,
     mute_sponsorblock: bool,
+    is_enabled: bool,
+    user_toggle: bool,
 }
 
 impl Client {
@@ -52,6 +54,8 @@ impl Client {
             segments: SharedSegments::default(),
             mute_segment: None,
             mute_sponsorblock: false,
+            is_enabled: false,
+            user_toggle: true,
         }
     }
 
@@ -124,7 +128,6 @@ impl Client {
             // Wait for MPV events indefinitely
             match self.wait_event(-1.) {
                 Event::StartFile(_data) => self.start_file(&tx)?,
-                Event::FileLoaded => self.loaded_file()?,
                 Event::PropertyChange(REPL_PROP_TIME, data) => self.time_change(data)?,
                 Event::PropertyChange(REPL_PROP_MUTE, data) => self.mute_change(data),
                 Event::ClientMessage(data) => self.client_message(data)?,
@@ -144,13 +147,6 @@ impl Client {
         log::trace!("Received start-file event");
         tx.send_blocking(WorkerEvent::Path(self.get_property(NAME_PROP_PATH)?))
             .unwrap();
-        Ok(())
-    }
-
-    fn loaded_file(&mut self) -> Result<()> {
-        log::trace!("Received file-loaded event");
-        self.observe_property(REPL_PROP_TIME, NAME_PROP_TIME, f64::MPV_FORMAT)?;
-        self.observe_property(REPL_PROP_MUTE, NAME_PROP_MUTE, bool::MPV_FORMAT)?;
         Ok(())
     }
 
@@ -181,17 +177,16 @@ impl Client {
     fn client_message(&mut self, data: ClientMessage) -> Result<()> {
         log::trace!("Received client-message event");
         match data.args().as_slice() {
-            ["key-binding", "poi", "u-", ..] => self.poi_requested()?,
+            ["key-binding", "toggle", "u-", ..] => self.toggle_requested(),
+            ["key-binding", "poi", "u-", ..] => self.poi_requested(),
             ["segments-fetched"] => self.segments_fetched(),
-            _ => {}
-        };
-        Ok(())
+            _ => Ok(()),
+        }
     }
 
     fn end_file(&mut self) -> Result<()> {
         log::trace!("Received end-file event");
-        self.unobserve_property(REPL_PROP_TIME)?;
-        self.unobserve_property(REPL_PROP_MUTE)?;
+        self.disable()?;
         self.reset()?;
         Ok(())
     }
@@ -239,6 +234,19 @@ impl Client {
         Ok(())
     }
 
+    fn toggle_requested(&mut self) -> Result<()> {
+        self.user_toggle = !self.user_toggle;
+        let name = self.name();
+        if self.user_toggle {
+            let _ = osd!(self, Duration::from_secs(4), "Enabling plugin {}", name);
+            self.enable()?;
+        } else {
+            let _ = osd!(self, Duration::from_secs(4), "Disabling plugin {}", name);
+            self.disable()?;
+        }
+        Ok(())
+    }
+
     fn poi_requested(&mut self) -> Result<()> {
         if let Some(time_pos) = self.get_video_poi() {
             self.set_property(NAME_PROP_TIME, time_pos)?;
@@ -247,7 +255,8 @@ impl Client {
         Ok(())
     }
 
-    fn segments_fetched(&mut self) {
+    fn segments_fetched(&mut self) -> Result<()> {
+        self.enable()?;
         if let Some(category) = self.get_video_category() {
             let _ = osd!(
                 self,
@@ -255,6 +264,31 @@ impl Client {
                 "This entire video is labeled as '{category}' and is too tightly integrated to be able to separate"
             );
         }
+        Ok(())
+    }
+
+    fn enable(&mut self) -> Result<()> {
+        // The plugin is disabled and user allow plugin to run nad segments are fetched
+        if !self.is_enabled && self.user_toggle && self.fetched() {
+            self.is_enabled = true;
+            self.observe_property(REPL_PROP_TIME, NAME_PROP_TIME, f64::MPV_FORMAT)?;
+            self.observe_property(REPL_PROP_MUTE, NAME_PROP_MUTE, bool::MPV_FORMAT)?;
+        }
+        Ok(())
+    }
+
+    fn disable(&mut self) -> Result<()> {
+        // The plugin is enabled
+        if self.is_enabled {
+            self.is_enabled = false;
+            self.unobserve_property(REPL_PROP_TIME)?;
+            self.unobserve_property(REPL_PROP_MUTE)?;
+        }
+        Ok(())
+    }
+
+    fn fetched(&self) -> bool {
+        self.segments.lock().unwrap().is_some()
     }
 
     fn segment_where<P>(&self, predicate: P) -> Option<Segment>
