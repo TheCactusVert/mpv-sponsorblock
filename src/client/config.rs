@@ -50,9 +50,9 @@ where
 struct ConfigAction {
     #[serde(skip, default = "default_as_true")]
     skip: bool,
-    #[serde(default)]
+    #[serde(rename = "allow_mute", default)]
     mute: bool,
-    #[serde(skip, default = "default_as_true")]
+    #[serde(rename = "show_category", default = "default_as_true")]
     full: bool,
     #[serde(skip, default = "default_as_true")]
     poi: bool,
