@@ -24,7 +24,7 @@ extern "C" fn mpv_open_cplugin(handle: *mut mpv_handle) -> std::os::raw::c_int {
             0
         }
         Err(e) => {
-            log::error!("Unhandled error on plugin SponsorBlock [{}]: {}", client.name(), e);
+            log::error!("Unrecoverable error on plugin SponsorBlock [{}]: {}", client.name(), e);
             -1
         }
     }
