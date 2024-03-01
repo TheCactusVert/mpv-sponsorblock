@@ -124,6 +124,16 @@ impl Client {
             }
         });
 
+        let result = self.exec_loop(tx.clone());
+
+        // Cancel worker
+        tx.send_blocking(WorkerEvent::Cancel).unwrap();
+        rt.block_on(&mut handle).unwrap();
+
+        result
+    }
+
+    fn exec_loop(&mut self, tx: async_channel::Sender<WorkerEvent>) -> Result<()> {
         loop {
             // Wait for MPV events indefinitely
             match self.wait_event(-1.) {
@@ -137,9 +147,6 @@ impl Client {
             };
         }
 
-        // Cancel worker
-        tx.send_blocking(WorkerEvent::Cancel).unwrap();
-        rt.block_on(&mut handle).unwrap();
         Ok(())
     }
 
