@@ -18,9 +18,9 @@ async-channel = "1.9.0"
 dirs = "5.0.1"
 env_logger = "0.10.1"
 log = "0.4.20"
-mpv-client = "0.6.1"
+#mpv-client = "0.6.1"
 #mpv-client = { path = "../mpv-client" }
-#mpv-client = { git = "https://github.com/TheCactusVert/mpv-client.git" }
+mpv-client = { git = "https://github.com/TheCactusVert/mpv-client.git" }
 regex = "1.10.2"
 serde = "1.0.195"
 serde_derive = "1.0.195"

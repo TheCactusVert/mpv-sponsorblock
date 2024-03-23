@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use async_channel::Sender;
-use mpv_client::{mpv_handle, osd, Client as MpvClient, ClientMessage, Event, Format, Handle, Property, Result};
+use mpv_client::{mpv_handle, osd, Client as MpvClient, ClientMessage, Event, Handle, Property, Result};
 use regex::Regex;
 use sponsorblock_client::*;
 use tokio::runtime::Runtime;
@@ -308,8 +308,8 @@ impl Client {
         // The plugin is disabled and user allow plugin to run nad segments are fetched
         if !self.is_enabled && self.user_toggle && self.fetched() {
             self.is_enabled = true;
-            self.observe_property(REPL_PROP_TIME, NAME_PROP_TIME, f64::MPV_FORMAT)?;
-            self.observe_property(REPL_PROP_MUTE, NAME_PROP_MUTE, bool::MPV_FORMAT)?;
+            self.observe_property::<f64>(REPL_PROP_TIME, NAME_PROP_TIME)?;
+            self.observe_property::<bool>(REPL_PROP_MUTE, NAME_PROP_MUTE)?;
         }
         Ok(())
     }
