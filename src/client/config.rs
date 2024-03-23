@@ -3,6 +3,7 @@ use std::io::{Error, ErrorKind};
 
 use regex::Regex;
 use serde::{Deserialize, Deserializer};
+use serde_with::{serde_as, DeserializeAs};
 use sponsorblock_client::{Action, Category};
 use url::Url;
 
@@ -18,6 +19,10 @@ fn build_domains_regex(patterns: &[&str]) -> Result<Regex, regex::Error> {
     );
 
     Regex::new(&pattern)
+}
+
+fn default_as_true() -> bool {
+    true
 }
 
 fn default_server() -> Url {
@@ -41,13 +46,53 @@ where
     build_domains_regex(&patterns).map_err(serde::de::Error::custom)
 }
 
-#[derive(serde_derive::Deserialize, Clone)]
+#[derive(serde_derive::Deserialize)]
+struct ConfigAction {
+    #[serde(skip, default = "default_as_true")]
+    skip: bool,
+    #[serde(rename = "allow_mute", default)]
+    mute: bool,
+    #[serde(rename = "show_category", default = "default_as_true")]
+    full: bool,
+    #[serde(skip, default = "default_as_true")]
+    poi: bool,
+}
+
+impl<'de> DeserializeAs<'de, HashSet<Action>> for ConfigAction {
+    fn deserialize_as<D>(deserializer: D) -> Result<HashSet<Action>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let config_action: ConfigAction = Self::deserialize(deserializer)?;
+
+        let mut hashset: HashSet<Action> = HashSet::default();
+
+        if config_action.skip {
+            hashset.insert(Action::Skip);
+        };
+        if config_action.mute {
+            hashset.insert(Action::Mute);
+        };
+        if config_action.full {
+            hashset.insert(Action::Full);
+        };
+        if config_action.poi {
+            hashset.insert(Action::Poi);
+        };
+
+        Ok(hashset)
+    }
+}
+
+#[serde_as]
+#[derive(serde_derive::Deserialize, Clone, Debug)]
 pub struct Config {
     #[serde(default = "default_server")]
     pub server_address: Url,
     #[serde(default)]
     pub categories: HashSet<Category>,
-    #[serde(default)]
+    #[serde(flatten)]
+    #[serde_as(as = "ConfigAction")]
     pub action_types: HashSet<Action>,
     #[serde(default)]
     pub privacy_api: bool,

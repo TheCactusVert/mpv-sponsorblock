@@ -1,12 +1,19 @@
 # Server address
 server_address = "https://sponsor.ajay.app"
+
 # Categories: sponsor, selfpromo, interaction, poi_highlight, intro, outro, preview, music_offtopic, filler, exclusive_access
 categories = ["sponsor"]
-# Action types: skip, mute, poi, full
-action_types = ["skip"]
+
+# Allow segments that mute audio instead of skip
+allow_mute = false
+# Show a message when a video is entirely a category
+show_category = true
+
 # Get segments for a video with extra privacy 
 privacy_api = false
+
 # Third party YouTube domains like Piped, Invidious or CloudTube
 domains = ["piped.kavin.rocks", "invidious.kavin.rocks"]
+
 # Use OSD when a segment is skipped or muted
 skip_notice = false
