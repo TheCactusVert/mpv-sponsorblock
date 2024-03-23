@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use async_channel::Sender;
-use mpv_client::{mpv_handle, osd, Client as MpvClient, ClientMessage, Event, Format, Handle, Property, Result};
+use mpv_client::{mpv_handle, osd, Client as MpvClient, ClientMessage, Event, Handle, Property, Result};
 use regex::Regex;
 use sponsorblock_client::*;
 use tokio::runtime::Runtime;
@@ -124,23 +124,31 @@ impl Client {
             }
         });
 
-        loop {
-            // Wait for MPV events indefinitely
-            match self.wait_event(-1.) {
-                Event::StartFile(_data) => self.start_file(&tx)?,
-                Event::PropertyChange(REPL_PROP_TIME, data) => self.time_change(data)?,
-                Event::PropertyChange(REPL_PROP_MUTE, data) => self.mute_change(data),
-                Event::ClientMessage(data) => self.client_message(data)?,
-                Event::EndFile(_data) => self.end_file()?,
-                Event::Shutdown => break,
-                _ => {}
-            };
-        }
+        self.exec_loop(tx.clone());
 
         // Cancel worker
         tx.send_blocking(WorkerEvent::Cancel).unwrap();
         rt.block_on(&mut handle).unwrap();
         Ok(())
+    }
+
+    fn exec_loop(&mut self, tx: async_channel::Sender<WorkerEvent>) {
+        loop {
+            // Wait for MPV events indefinitely
+            let result = match self.wait_event(-1.) {
+                Event::StartFile(_data) => self.start_file(&tx),
+                Event::PropertyChange(REPL_PROP_TIME, data) => self.time_change(data),
+                Event::PropertyChange(REPL_PROP_MUTE, data) => self.mute_change(data),
+                Event::ClientMessage(data) => self.client_message(data),
+                Event::EndFile(_data) => self.end_file(),
+                Event::Shutdown => break,
+                _ => Ok(()),
+            };
+
+            if let Err(e) = result {
+                log::error!("Unhandled error on plugin SponsorBlock [{}]: {}", self.name(), e);
+            }
+        }
     }
 
     fn start_file(&mut self, tx: &Sender<WorkerEvent>) -> Result<()> {
@@ -167,11 +175,12 @@ impl Client {
         }
     }
 
-    fn mute_change(&mut self, data: Property) {
+    fn mute_change(&mut self, data: Property) -> Result<()> {
         log::trace!("Received property-change event [{data}]");
         if data.data() == Some(false) {
             self.mute_sponsorblock = false;
         };
+        Ok(())
     }
 
     fn client_message(&mut self, data: ClientMessage) -> Result<()> {
@@ -299,8 +308,8 @@ impl Client {
         // The plugin is disabled and user allow plugin to run nad segments are fetched
         if !self.is_enabled && self.user_toggle && self.fetched() {
             self.is_enabled = true;
-            self.observe_property(REPL_PROP_TIME, NAME_PROP_TIME, f64::MPV_FORMAT)?;
-            self.observe_property(REPL_PROP_MUTE, NAME_PROP_MUTE, bool::MPV_FORMAT)?;
+            self.observe_property::<f64>(REPL_PROP_TIME, NAME_PROP_TIME)?;
+            self.observe_property::<bool>(REPL_PROP_MUTE, NAME_PROP_MUTE)?;
         }
         Ok(())
     }

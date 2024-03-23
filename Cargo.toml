@@ -1,6 +1,6 @@
 [package]
 name = "mpv-sponsorblock"
-version = "2.0.0"
+version = "2.1.0"
 edition = "2021"
 authors = ["Kevin Gavrois <kevin@gavrois.fr>"]
 description = "MPV plugin that allow you to skip sponsors while watching YouTube videos"
@@ -18,7 +18,7 @@ async-channel = "1.9.0"
 dirs = "5.0.1"
 env_logger = "0.10.1"
 log = "0.4.20"
-mpv-client = "0.6.0"
+mpv-client = "0.6.2"
 #mpv-client = { path = "../mpv-client" }
 #mpv-client = { git = "https://github.com/TheCactusVert/mpv-client.git" }
 regex = "1.10.2"

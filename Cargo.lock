@@ -671,13 +671,13 @@ dependencies = [
 
 [[package]]
 name = "mpv-client"
-version = "0.6.0"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89f50611277706a6e6519b3c3cc2cee660315327fca87abc2f3c369a95e6bb8a"
+checksum = "cc20002398cdc6bbc59d9e364513665ecdaa6f9a960578f8b26dcfbfcf1f7fef"
 
 [[package]]
 name = "mpv-sponsorblock"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "async-channel",
  "dirs",
