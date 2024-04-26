@@ -14,20 +14,20 @@ crate-type = ["cdylib"]      # Creates dynamic lib
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-async-channel = "1.9.0"
+async-channel = "2.2.1"
 dirs = "5.0.1"
-env_logger = "0.10.1"
-log = "0.4.20"
+env_logger = "0.11.3"
+log = "0.4.21"
 mpv-client = "0.6.2"
 #mpv-client = { path = "../mpv-client" }
 #mpv-client = { git = "https://github.com/TheCactusVert/mpv-client.git" }
-regex = "1.10.2"
-serde = "1.0.195"
-serde_derive = "1.0.195"
+regex = "1.10.4"
+serde = "1.0.198"
+serde_derive = "1.0.198"
 sponsorblock-client = { git = "https://github.com/TheCactusVert/sponsorblock-client.git" }
 #sponsorblock-client = { path = "../sponsorblock-client" }
-tokio = { version = "1.35.1", features = ["rt-multi-thread", "macros"] }
-toml = "0.8.8"
+tokio = { version = "1.37.0", features = ["rt-multi-thread", "macros"] }
+toml = "0.8.12"
 url = { version = "2.5.0", features = ["serde"] }
 
 [profile.release]
