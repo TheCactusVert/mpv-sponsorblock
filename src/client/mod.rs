@@ -209,7 +209,7 @@ impl Client {
             .as_ref()
             .is_some_and(|last_segment| &working_segment == last_segment)
         {
-            self.set_property(NAME_PROP_TIME, working_segment.segment[1] - 0.2_f64)?;
+            self.set_property(NAME_PROP_TIME, working_segment.segment[1])?;
             osd_info!(self, Duration::from_secs(8), "Skipped segment {working_segment}");
             self.skip_segment = Some(working_segment);
         } else {
