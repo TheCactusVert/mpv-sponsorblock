@@ -40,6 +40,7 @@ pub struct Client {
     handle: *mut mpv_handle,
     config: Config,
     segments: SharedSegments,
+    skip_segment: Option<Segment>,
     mute_segment: Option<Segment>,
     mute_sponsorblock: bool,
     is_enabled: bool,
@@ -52,6 +53,7 @@ impl Client {
             handle,
             config: Config::get(),
             segments: SharedSegments::default(),
+            skip_segment: None,
             mute_segment: None,
             mute_sponsorblock: false,
             is_enabled: false,
@@ -202,8 +204,17 @@ impl Client {
     }
 
     fn skip(&mut self, working_segment: Segment) -> Result<()> {
-        self.set_property(NAME_PROP_TIME, working_segment.segment[1])?;
-        osd_info!(self, Duration::from_secs(8), "Skipped segment {working_segment}");
+        if !self
+            .skip_segment
+            .as_ref()
+            .is_some_and(|last_segment| &working_segment == last_segment)
+        {
+            self.set_property(NAME_PROP_TIME, working_segment.segment[1])?;
+            osd_info!(self, Duration::from_secs(8), "Skipped segment {working_segment}");
+            self.skip_segment = Some(working_segment);
+        } else {
+            log::warn!("Possible endless loop detected ignoring segment...")
+        }
         Ok(())
     }
 
@@ -237,9 +248,10 @@ impl Client {
             } else {
                 log::info!("Muttable segment(s) ended but mute value was modified. Ignoring");
             }
-
-            self.mute_segment = None;
         }
+
+        self.skip_segment = None;
+        self.mute_segment = None;
 
         Ok(())
     }
@@ -337,9 +349,7 @@ impl Client {
     }
 
     fn get_skip_segment(&self, time_pos: f64) -> Option<Segment> {
-        self.segment_where(|s| {
-            s.action == Action::Skip && time_pos >= s.segment[0] && time_pos < (s.segment[1] - 0.1_f64)
-        }) // Fix for a stupid bug when times are too precise
+        self.segment_where(|s| s.action == Action::Skip && time_pos >= s.segment[0] && time_pos < s.segment[1])
     }
 
     fn get_mute_segment(&self, time_pos: f64) -> Option<Segment> {
