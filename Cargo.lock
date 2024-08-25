@@ -663,16 +663,18 @@ dependencies = [
 
 [[package]]
 name = "mpv-client"
-version = "1.0.0"
-source = "git+https://github.com/TheCactusVert/mpv-client.git?branch=bindgen#54760037efb0cfa5ed7e75697c6ade54a45d2c41"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "60a131cb5edb5564cfb55a02f53f9a6a6ed3f5b28a4e13e682a74e1c47dd1c17"
 dependencies = [
  "mpv-client-sys",
 ]
 
 [[package]]
 name = "mpv-client-sys"
-version = "1.0.0"
-source = "git+https://github.com/TheCactusVert/mpv-client.git?branch=bindgen#54760037efb0cfa5ed7e75697c6ade54a45d2c41"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39c0d45bb600e29318acb024e92e03c12ce78cf9530eaaa8f5a98dca4f54f8c6"
 dependencies = [
  "bindgen",
 ]
