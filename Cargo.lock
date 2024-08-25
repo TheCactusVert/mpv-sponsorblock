@@ -587,8 +587,7 @@ dependencies = [
 [[package]]
 name = "mpv-client"
 version = "0.6.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc20002398cdc6bbc59d9e364513665ecdaa6f9a960578f8b26dcfbfcf1f7fef"
+source = "git+https://github.com/TheCactusVert/mpv-client.git#af003856cfdcb961b417f24f47e8165b8deaf105"
 
 [[package]]
 name = "mpv-sponsorblock"
