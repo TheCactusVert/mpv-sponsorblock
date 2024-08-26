@@ -164,7 +164,7 @@ impl Client {
         // https://github.com/TheCactusVert/mpv-sponsorblock/issues/5
         if let Some(time_pos) = data.data().filter(|t| t >= &0.5_f64) {
             if let Some(s) = self.get_skip_segment(time_pos) {
-                self.skip(time_pos, s) // Skip segments are priority
+                self.skip(s) // Skip segments are priority
             } else if let Some(s) = self.get_mute_segment(time_pos) {
                 self.mute(s)
             } else {
@@ -201,13 +201,9 @@ impl Client {
         Ok(())
     }
 
-    fn skip(&mut self, time_pos: f64, working_segment: Segment) -> Result<()> {
-        // Only if the remaining length is less than 3 secs
-        if time_pos < (working_segment.segment[1] - 3.0_f64) {
-            // Add an extra 0.05 sec for good mesure
-            self.set_property(NAME_PROP_TIME, working_segment.segment[1] + 0.05_f64)?;
-            osd_info!(self, Duration::from_secs(8), "Skipped segment {working_segment}");
-        }
+    fn skip(&mut self, working_segment: Segment) -> Result<()> {
+        self.set_property(NAME_PROP_TIME, working_segment.segment[1] + 0.05_f64)?;
+        osd_info!(self, Duration::from_secs(8), "Skipped segment {working_segment}");
         Ok(())
     }
 
@@ -342,8 +338,9 @@ impl Client {
 
     fn get_skip_segment(&self, time_pos: f64) -> Option<Segment> {
         self.segment_where(|s| {
-            s.action == Action::Skip && time_pos >= s.segment[0] && time_pos < (s.segment[1] - 0.1_f64)
-        }) // Fix for a stupid bug when times are too precise
+            // Ignore segments if it remains 3 secs to avoid infinite loops
+            s.action == Action::Skip && time_pos >= s.segment[0] && time_pos < (s.segment[1] - 3.0_f64)
+        })
     }
 
     fn get_mute_segment(&self, time_pos: f64) -> Option<Segment> {
