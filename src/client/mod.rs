@@ -185,7 +185,6 @@ impl Client {
 
     fn client_message(&mut self, data: ClientMessage) -> Result<()> {
         log::trace!("Received client-message event");
-        log::info!("data {}", data.args().join(" | "));
         match data.args().as_slice() {
             ["key-binding", "info", "u--", ..] => self.info_requested(),
             ["key-binding", "poi", "u--", ..] => self.poi_requested(),
